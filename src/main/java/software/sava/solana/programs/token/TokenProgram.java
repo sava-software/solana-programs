@@ -15,6 +15,7 @@ import static software.sava.core.accounts.meta.AccountMeta.*;
 import static software.sava.core.tx.Instruction.createInstruction;
 
 // https://github.com/solana-program/token/blob/main/program/src/instruction.rs#L23
+// https://github.com/solana-program/token-2022/blob/main/program/src/instruction.rs
 public final class TokenProgram {
 
   public enum AuthorityType {
@@ -511,6 +512,179 @@ public final class TokenProgram {
     }
   }
 
+  private static byte[] initializeMintData(final TokenInstruction tokenInstruction,
+                                           final PublicKey mintAuthority,
+                                           final PublicKey freezeAuthority) {
+    final byte[] data;
+    if (freezeAuthority == null) {
+      data = new byte[1 + PUBLIC_KEY_LENGTH + 1];
+      data[33] = (byte) 0;
+    } else {
+      data = new byte[1 + PUBLIC_KEY_LENGTH + 1 + PUBLIC_KEY_LENGTH];
+      data[33] = (byte) 1;
+      freezeAuthority.write(data, 34);
+    }
+    data[0] = tokenInstruction.discriminator;
+    mintAuthority.write(data, 1);
+    return data;
+  }
+
+  public static Instruction initializeMint(final AccountMeta invokedTokenProgram,
+                                           final SolanaAccounts solanaAccounts,
+                                           final PublicKey mint,
+                                           final PublicKey mintAuthority,
+                                           final PublicKey freezeAuthority) {
+    final var keys = List.of(
+        createWrite(mint),
+        solanaAccounts.readRentSysVar()
+    );
+    final byte[] data = initializeMintData(TokenInstruction.InitializeMint, mintAuthority, freezeAuthority);
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction initializeMint(final SolanaAccounts solanaAccounts,
+                                           final PublicKey mint,
+                                           final PublicKey mintAuthority,
+                                           final PublicKey freezeAuthority) {
+    return initializeMint(solanaAccounts.invokedTokenProgram(), solanaAccounts, mint, mintAuthority, freezeAuthority);
+  }
+
+  public static Instruction initializeMint2(final AccountMeta invokedTokenProgram,
+                                            final PublicKey mint,
+                                            final PublicKey mintAuthority,
+                                            final PublicKey freezeAuthority) {
+    final var keys = List.of(createWrite(mint));
+    final byte[] data = initializeMintData(TokenInstruction.InitializeMint2, mintAuthority, freezeAuthority);
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction initializeMint2(final SolanaAccounts solanaAccounts,
+                                            final PublicKey mint,
+                                            final PublicKey mintAuthority,
+                                            final PublicKey freezeAuthority) {
+    return initializeMint2(solanaAccounts.invokedTokenProgram(), mint, mintAuthority, freezeAuthority);
+  }
+
+  public static Instruction initializeAccount(final AccountMeta invokedTokenProgram,
+                                              final SolanaAccounts solanaAccounts,
+                                              final PublicKey account,
+                                              final PublicKey mint,
+                                              final PublicKey owner) {
+    final var keys = List.of(
+        createWrite(account),
+        createRead(mint),
+        createRead(owner),
+        solanaAccounts.readRentSysVar()
+    );
+    return createInstruction(invokedTokenProgram, keys, TokenInstruction.InitializeAccount.discriminatorBytes);
+  }
+
+  public static Instruction initializeAccount(final SolanaAccounts solanaAccounts,
+                                              final PublicKey account,
+                                              final PublicKey mint,
+                                              final PublicKey owner) {
+    return initializeAccount(solanaAccounts.invokedTokenProgram(), solanaAccounts, account, mint, owner);
+  }
+
+  public static Instruction initializeAccount2(final AccountMeta invokedTokenProgram,
+                                               final SolanaAccounts solanaAccounts,
+                                               final PublicKey account,
+                                               final PublicKey mint,
+                                               final PublicKey owner) {
+    final var keys = List.of(
+        createWrite(account),
+        createRead(mint),
+        solanaAccounts.readRentSysVar()
+    );
+
+    final byte[] data = new byte[1 + PUBLIC_KEY_LENGTH];
+    data[0] = TokenInstruction.InitializeAccount2.discriminator;
+    owner.write(data, 1);
+
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction initializeAccount2(final SolanaAccounts solanaAccounts,
+                                               final PublicKey account,
+                                               final PublicKey mint,
+                                               final PublicKey owner) {
+    return initializeAccount2(solanaAccounts.invokedTokenProgram(), solanaAccounts, account, mint, owner);
+  }
+
+  public static Instruction initializeAccount3(final AccountMeta invokedTokenProgram,
+                                               final PublicKey account,
+                                               final PublicKey mint,
+                                               final PublicKey owner) {
+    final var keys = List.of(
+        createWrite(account),
+        createRead(mint)
+    );
+
+    final byte[] data = new byte[1 + PUBLIC_KEY_LENGTH];
+    data[0] = TokenInstruction.InitializeAccount3.discriminator;
+    owner.write(data, 1);
+
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction initializeAccount3(final SolanaAccounts solanaAccounts,
+                                               final PublicKey account,
+                                               final PublicKey mint,
+                                               final PublicKey owner) {
+    return initializeAccount3(solanaAccounts.invokedTokenProgram(), account, mint, owner);
+  }
+
+  static AccountMeta[] initSigners(int offset, final List<PublicKey> signerAccounts) {
+    final var keys = new AccountMeta[offset + signerAccounts.size()];
+    for (final var signerAccount : signerAccounts) {
+      keys[offset++] = createRead(signerAccount);
+    }
+    return keys;
+  }
+
+  public static Instruction initializeMultisig(final AccountMeta invokedTokenProgram,
+                                               final SolanaAccounts solanaAccounts,
+                                               final PublicKey multisigAccount,
+                                               final List<PublicKey> signerAccounts,
+                                               final int requiredSignatures) {
+    final var keys = initSigners(2, signerAccounts);
+    keys[0] = createWrite(multisigAccount);
+    keys[1] = solanaAccounts.readRentSysVar();
+
+    final byte[] data = new byte[2];
+    data[0] = TokenInstruction.InitializeMultisig.discriminator;
+    data[1] = (byte) (requiredSignatures & 0xFF);
+
+    return createInstruction(invokedTokenProgram, Arrays.asList(keys), data);
+  }
+
+  public static Instruction initializeMultisig(final SolanaAccounts solanaAccounts,
+                                               final PublicKey multisigAccount,
+                                               final List<PublicKey> signerAccounts,
+                                               final int requiredSignatures) {
+    return initializeMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        solanaAccounts,
+        multisigAccount,
+        signerAccounts,
+        requiredSignatures
+    );
+  }
+
+  public static Instruction initializeMultisig2(final AccountMeta invokedTokenProgram,
+                                                final PublicKey multisigAccount,
+                                                final List<PublicKey> signerAccounts,
+                                                final int requiredSignatures) {
+    final var keys = initSigners(1, signerAccounts);
+    keys[0] = createWrite(multisigAccount);
+
+    final byte[] data = new byte[2];
+    data[0] = TokenInstruction.InitializeMultisig2.discriminator;
+    data[1] = (byte) (requiredSignatures & 0xFF);
+
+    return createInstruction(invokedTokenProgram, Arrays.asList(keys), data);
+  }
+
   private static byte[] amountData(final TokenInstruction tokenInstruction, final long amount) {
     final byte[] data = new byte[1 + Long.BYTES];
     data[0] = tokenInstruction.discriminator;
@@ -544,14 +718,10 @@ public final class TokenProgram {
                                              final long amount,
                                              final PublicKey owner,
                                              final List<PublicKey> signerAccounts) {
-    final var keys = new AccountMeta[3 + signerAccounts.size()];
+    final var keys = initSigners(3, signerAccounts);
     keys[0] = createWrite(source);
     keys[1] = createWrite(destination);
     keys[2] = createRead(owner);
-    int i = 3;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
 
     final byte[] data = transferData(amount);
 
@@ -597,82 +767,22 @@ public final class TokenProgram {
                                                     final PublicKey owner,
                                                     final PublicKey tokenMint,
                                                     final List<PublicKey> signerAccounts) {
-    final var keys = new AccountMeta[4 + signerAccounts.size()];
+    final var keys = initSigners(4, signerAccounts);
     keys[0] = createWrite(source);
     keys[1] = createRead(tokenMint);
     keys[2] = createWrite(destination);
     keys[3] = createRead(owner);
-    int i = 4;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
 
     final byte[] data = transferCheckedData(amount, decimals);
 
     return createInstruction(invokedProgram, Arrays.asList(keys), data);
   }
 
-  public static Instruction initializeMint(final SolanaAccounts solanaAccounts,
-                                           final PublicKey mint,
-                                           final PublicKey mintAuthority,
-                                           final PublicKey freezeAuthority) {
-    final var keys = List.of(
-        createWrite(mint),
-        solanaAccounts.readRentSysVar()
-    );
-
-    final byte[] data;
-    if (freezeAuthority == null) {
-      data = new byte[1 + PUBLIC_KEY_LENGTH + 1];
-      data[33] = (byte) 0;
-    } else {
-      data = new byte[1 + PUBLIC_KEY_LENGTH + 1 + PUBLIC_KEY_LENGTH];
-      data[33] = (byte) 1;
-      mintAuthority.write(data, 34);
-    }
-    data[0] = TokenInstruction.InitializeMint.discriminator;
-    mintAuthority.write(data, 1);
-
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
-  }
-
-  public static Instruction initializeAccount(final SolanaAccounts solanaAccounts,
-                                              final PublicKey account,
-                                              final PublicKey mint,
-                                              final PublicKey owner) {
-    final var keys = List.of(
-        createWrite(account),
-        createRead(mint),
-        createRead(owner),
-        solanaAccounts.readRentSysVar()
-    );
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, TokenInstruction.InitializeAccount.discriminatorBytes);
-  }
-
-  public static Instruction initializeMultisig(final SolanaAccounts solanaAccounts,
-                                               final PublicKey multisigAccount,
-                                               final List<PublicKey> signerAccounts,
-                                               final int requiredSignatures) {
-    final var keys = new AccountMeta[2 + signerAccounts.size()];
-    keys[0] = createWrite(multisigAccount);
-    keys[1] = solanaAccounts.readRentSysVar();
-    int i = 2;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createRead(signerAccount);
-    }
-
-    final byte[] data = new byte[2];
-    data[0] = TokenInstruction.InitializeMultisig.discriminator;
-    data[1] = (byte) (requiredSignatures & 0xFF);
-
-    return createInstruction(solanaAccounts.invokedTokenProgram(), Arrays.asList(keys), data);
-  }
-
   private static byte[] approveData(final long amount) {
     return amountData(TokenInstruction.Approve, amount);
   }
 
-  public static Instruction approve(final SolanaAccounts solanaAccounts,
+  public static Instruction approve(final AccountMeta invokedTokenProgram,
                                     final PublicKey sourceAccount,
                                     final PublicKey delegate,
                                     final PublicKey owner,
@@ -685,7 +795,31 @@ public final class TokenProgram {
 
     final byte[] data = approveData(amount);
 
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction approve(final SolanaAccounts solanaAccounts,
+                                    final PublicKey sourceAccount,
+                                    final PublicKey delegate,
+                                    final PublicKey owner,
+                                    final long amount) {
+    return approve(solanaAccounts.invokedTokenProgram(), sourceAccount, delegate, owner, amount);
+  }
+
+  public static Instruction approveMultisig(final AccountMeta invokedTokenProgram,
+                                            final PublicKey sourceAccount,
+                                            final PublicKey delegate,
+                                            final PublicKey owner,
+                                            final List<PublicKey> signerAccounts,
+                                            final long amount) {
+    final var keys = initSigners(3, signerAccounts);
+    keys[0] = createWrite(sourceAccount);
+    keys[1] = createRead(delegate);
+    keys[2] = createRead(owner);
+
+    final byte[] data = approveData(amount);
+
+    return createInstruction(invokedTokenProgram, Arrays.asList(keys), data);
   }
 
   public static Instruction approveMultisig(final SolanaAccounts solanaAccounts,
@@ -694,25 +828,21 @@ public final class TokenProgram {
                                             final PublicKey owner,
                                             final List<PublicKey> signerAccounts,
                                             final long amount) {
-    final var keys = new AccountMeta[3 + signerAccounts.size()];
-    keys[0] = createWrite(sourceAccount);
-    keys[1] = createRead(delegate);
-    keys[2] = createRead(owner);
-    int i = 3;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
-
-    final byte[] data = approveData(amount);
-
-    return createInstruction(solanaAccounts.invokedTokenProgram(), Arrays.asList(keys), data);
+    return approveMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        sourceAccount,
+        delegate,
+        owner,
+        signerAccounts,
+        amount
+    );
   }
 
   private static byte[] approveCheckedData(final long amount, final int decimals) {
     return checkedAmountData(TokenInstruction.ApproveChecked, amount, decimals);
   }
 
-  public static Instruction approveChecked(final SolanaAccounts solanaAccounts,
+  public static Instruction approveChecked(final AccountMeta invokedTokenProgram,
                                            final PublicKey sourceAccount,
                                            final PublicKey tokenMint,
                                            final int decimals,
@@ -728,7 +858,44 @@ public final class TokenProgram {
 
     final byte[] data = approveCheckedData(amount, decimals);
 
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction approveChecked(final SolanaAccounts solanaAccounts,
+                                           final PublicKey sourceAccount,
+                                           final PublicKey tokenMint,
+                                           final int decimals,
+                                           final PublicKey delegate,
+                                           final PublicKey owner,
+                                           final long amount) {
+    return approveChecked(
+        solanaAccounts.invokedTokenProgram(),
+        sourceAccount,
+        tokenMint,
+        decimals,
+        delegate,
+        owner,
+        amount
+    );
+  }
+
+  public static Instruction approveCheckedMultisig(final AccountMeta invokedTokenProgram,
+                                                   final PublicKey sourceAccount,
+                                                   final PublicKey tokenMint,
+                                                   final int decimals,
+                                                   final PublicKey delegate,
+                                                   final PublicKey owner,
+                                                   final List<PublicKey> signerAccounts,
+                                                   final long amount) {
+    final var keys = initSigners(4, signerAccounts);
+    keys[0] = createWrite(sourceAccount);
+    keys[1] = createRead(tokenMint);
+    keys[2] = createRead(delegate);
+    keys[3] = createRead(owner);
+
+    final byte[] data = approveCheckedData(amount, decimals);
+
+    return createInstruction(invokedTokenProgram, Arrays.asList(keys), data);
   }
 
   public static Instruction approveCheckedMultisig(final SolanaAccounts solanaAccounts,
@@ -739,45 +906,50 @@ public final class TokenProgram {
                                                    final PublicKey owner,
                                                    final List<PublicKey> signerAccounts,
                                                    final long amount) {
-    final var keys = new AccountMeta[4 + signerAccounts.size()];
-    keys[0] = createWrite(sourceAccount);
-    keys[1] = createRead(tokenMint);
-    keys[2] = createRead(delegate);
-    keys[3] = createRead(owner);
-    int i = 4;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
-
-    final byte[] data = approveCheckedData(amount, decimals);
-
-    return createInstruction(solanaAccounts.invokedTokenProgram(), Arrays.asList(keys), data);
+    return approveCheckedMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        sourceAccount,
+        tokenMint,
+        decimals,
+        delegate,
+        owner,
+        signerAccounts,
+        amount
+    );
   }
 
-  public static Instruction revoke(final SolanaAccounts solanaAccounts,
+  public static Instruction revoke(final AccountMeta invokedTokenProgram,
                                    final PublicKey sourceAccount,
                                    final PublicKey owner) {
     final var keys = List.of(
         createWrite(sourceAccount),
         createReadOnlySigner(owner)
     );
+    return createInstruction(invokedTokenProgram, keys, TokenInstruction.Revoke.discriminatorBytes);
+  }
 
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, TokenInstruction.Revoke.discriminatorBytes);
+  public static Instruction revoke(final SolanaAccounts solanaAccounts,
+                                   final PublicKey sourceAccount,
+                                   final PublicKey owner) {
+    return revoke(solanaAccounts.invokedTokenProgram(), sourceAccount, owner);
+  }
+
+  public static Instruction revokeMultisig(final AccountMeta invokedTokenProgram,
+                                           final PublicKey sourceAccount,
+                                           final PublicKey owner,
+                                           final List<PublicKey> signerAccounts) {
+    final var keys = initSigners(2, signerAccounts);
+    keys[0] = createWrite(sourceAccount);
+    keys[1] = createRead(owner);
+
+    return createInstruction(invokedTokenProgram, Arrays.asList(keys), TokenInstruction.Revoke.discriminatorBytes);
   }
 
   public static Instruction revokeMultisig(final SolanaAccounts solanaAccounts,
                                            final PublicKey sourceAccount,
                                            final PublicKey owner,
                                            final List<PublicKey> signerAccounts) {
-    final var keys = new AccountMeta[2 + signerAccounts.size()];
-    keys[0] = createWrite(sourceAccount);
-    keys[1] = createRead(owner);
-    int i = 2;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
-
-    return createInstruction(solanaAccounts.invokedTokenProgram(), Arrays.asList(keys), TokenInstruction.Revoke.discriminatorBytes);
+    return revokeMultisig(solanaAccounts.invokedTokenProgram(), sourceAccount, owner, signerAccounts);
   }
 
   private static byte[] setAuthorityData(final AuthorityType authorityType, final PublicKey newAuthority) {
@@ -796,7 +968,7 @@ public final class TokenProgram {
     return data;
   }
 
-  public static Instruction setAuthority(final SolanaAccounts solanaAccounts,
+  public static Instruction setAuthority(final AccountMeta invokedTokenProgram,
                                          final PublicKey account,
                                          final PublicKey authority,
                                          final AuthorityType authorityType,
@@ -808,7 +980,30 @@ public final class TokenProgram {
 
     final byte[] data = setAuthorityData(authorityType, newAuthority);
 
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction setAuthority(final SolanaAccounts solanaAccounts,
+                                         final PublicKey account,
+                                         final PublicKey authority,
+                                         final AuthorityType authorityType,
+                                         final PublicKey newAuthority) {
+    return setAuthority(solanaAccounts.invokedTokenProgram(), account, authority, authorityType, newAuthority);
+  }
+
+  public static Instruction setAuthorityMultisig(final AccountMeta invokedTokenProgram,
+                                                 final PublicKey account,
+                                                 final PublicKey owner,
+                                                 final List<PublicKey> signerAccounts,
+                                                 final AuthorityType authorityType,
+                                                 final PublicKey newAuthority) {
+    final var keys = initSigners(2, signerAccounts);
+    keys[0] = createWrite(account);
+    keys[1] = createRead(owner);
+
+    final byte[] data = setAuthorityData(authorityType, newAuthority);
+
+    return createInstruction(invokedTokenProgram, Arrays.asList(keys), data);
   }
 
   public static Instruction setAuthorityMultisig(final SolanaAccounts solanaAccounts,
@@ -817,17 +1012,7 @@ public final class TokenProgram {
                                                  final List<PublicKey> signerAccounts,
                                                  final AuthorityType authorityType,
                                                  final PublicKey newAuthority) {
-    final var keys = new AccountMeta[2 + signerAccounts.size()];
-    keys[0] = createWrite(account);
-    keys[1] = createRead(owner);
-    int i = 2;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
-
-    final byte[] data = setAuthorityData(authorityType, newAuthority);
-
-    return createInstruction(solanaAccounts.invokedTokenProgram(), Arrays.asList(keys), data);
+    return setAuthorityMultisig(solanaAccounts.invokedTokenProgram(), account, owner, signerAccounts, authorityType, newAuthority);
   }
 
   private static byte[] mintToData(final long amount) {
@@ -844,29 +1029,44 @@ public final class TokenProgram {
     );
   }
 
-  public static Instruction mintTo(final SolanaAccounts solanaAccounts,
+  public static Instruction mintTo(final AccountMeta invokedTokenProgram,
                                    final PublicKey mint,
                                    final PublicKey account,
                                    final PublicKey authority,
                                    final long amount) {
     final var keys = mintToKeys(mint, account, authority);
     final byte[] data = mintToData(amount);
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction mintTo(final SolanaAccounts solanaAccounts,
+                                   final PublicKey mint,
+                                   final PublicKey account,
+                                   final PublicKey authority,
+                                   final long amount) {
+    return mintTo(solanaAccounts.invokedTokenProgram(), mint, account, authority, amount);
   }
 
   private static List<AccountMeta> mintToMultisigKeys(final PublicKey mint,
                                                       final PublicKey account,
                                                       final PublicKey authority,
                                                       final List<PublicKey> signerAccounts) {
-    final var keys = new AccountMeta[3 + signerAccounts.size()];
+    final var keys = initSigners(3, signerAccounts);
     keys[0] = createWrite(mint);
     keys[1] = createWrite(account);
     keys[2] = createRead(authority);
-    int i = 3;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
     return Arrays.asList(keys);
+  }
+
+  public static Instruction mintToMultisig(final AccountMeta invokedTokenProgram,
+                                           final PublicKey mint,
+                                           final PublicKey account,
+                                           final PublicKey authority,
+                                           final List<PublicKey> signerAccounts,
+                                           final long amount) {
+    final var keys = mintToMultisigKeys(mint, account, authority, signerAccounts);
+    final byte[] data = mintToData(amount);
+    return createInstruction(invokedTokenProgram, keys, data);
   }
 
   public static Instruction mintToMultisig(final SolanaAccounts solanaAccounts,
@@ -875,13 +1075,29 @@ public final class TokenProgram {
                                            final PublicKey authority,
                                            final List<PublicKey> signerAccounts,
                                            final long amount) {
-    final var keys = mintToMultisigKeys(mint, account, authority, signerAccounts);
-    final byte[] data = mintToData(amount);
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return mintToMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        mint,
+        account,
+        authority,
+        signerAccounts,
+        amount
+    );
   }
 
   private static byte[] mintToCheckedData(final long amount, final int decimals) {
     return checkedAmountData(TokenInstruction.MintToChecked, amount, decimals);
+  }
+
+  public static Instruction mintToChecked(final AccountMeta invokedTokenProgram,
+                                          final PublicKey mint,
+                                          final int decimals,
+                                          final PublicKey account,
+                                          final PublicKey authority,
+                                          final long amount) {
+    final var keys = mintToKeys(mint, account, authority);
+    final byte[] data = mintToCheckedData(amount, decimals);
+    return createInstruction(invokedTokenProgram, keys, data);
   }
 
   public static Instruction mintToChecked(final SolanaAccounts solanaAccounts,
@@ -890,9 +1106,26 @@ public final class TokenProgram {
                                           final PublicKey account,
                                           final PublicKey authority,
                                           final long amount) {
-    final var keys = mintToKeys(mint, account, authority);
+    return mintToChecked(
+        solanaAccounts.invokedTokenProgram(),
+        mint,
+        decimals,
+        account,
+        authority,
+        amount
+    );
+  }
+
+  public static Instruction mintToCheckedMultisig(final AccountMeta invokedTokenProgram,
+                                                  final PublicKey mint,
+                                                  final int decimals,
+                                                  final PublicKey account,
+                                                  final PublicKey authority,
+                                                  final List<PublicKey> signerAccounts,
+                                                  final long amount) {
+    final var keys = mintToMultisigKeys(mint, account, authority, signerAccounts);
     final byte[] data = mintToCheckedData(amount, decimals);
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return createInstruction(invokedTokenProgram, keys, data);
   }
 
   public static Instruction mintToCheckedMultisig(final SolanaAccounts solanaAccounts,
@@ -902,9 +1135,15 @@ public final class TokenProgram {
                                                   final PublicKey authority,
                                                   final List<PublicKey> signerAccounts,
                                                   final long amount) {
-    final var keys = mintToMultisigKeys(mint, account, authority, signerAccounts);
-    final byte[] data = mintToCheckedData(amount, decimals);
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return mintToCheckedMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        mint,
+        decimals,
+        account,
+        authority,
+        signerAccounts,
+        amount
+    );
   }
 
   private static byte[] burnData(final long amount) {
@@ -921,29 +1160,44 @@ public final class TokenProgram {
     );
   }
 
-  public static Instruction burn(final SolanaAccounts solanaAccounts,
+  public static Instruction burn(final AccountMeta invokedTokenProgram,
                                  final PublicKey mint,
                                  final PublicKey account,
                                  final PublicKey authority,
                                  final long amount) {
     final var keys = burnKeys(mint, account, authority);
     final byte[] data = burnData(amount);
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction burn(final SolanaAccounts solanaAccounts,
+                                 final PublicKey mint,
+                                 final PublicKey account,
+                                 final PublicKey authority,
+                                 final long amount) {
+    return burn(solanaAccounts.invokedTokenProgram(), mint, account, authority, amount);
   }
 
   private static List<AccountMeta> burnMultisigKeys(final PublicKey mint,
                                                     final PublicKey account,
                                                     final PublicKey authority,
                                                     final List<PublicKey> signerAccounts) {
-    final var keys = new AccountMeta[3 + signerAccounts.size()];
+    final var keys = initSigners(3, signerAccounts);
     keys[0] = createWrite(account);
     keys[1] = createWrite(mint);
     keys[2] = createRead(authority);
-    int i = 3;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
     return Arrays.asList(keys);
+  }
+
+  public static Instruction burnMultisig(final AccountMeta invokedTokenProgram,
+                                         final PublicKey mint,
+                                         final PublicKey account,
+                                         final PublicKey authority,
+                                         final List<PublicKey> signerAccounts,
+                                         final long amount) {
+    final var keys = burnMultisigKeys(mint, account, authority, signerAccounts);
+    final byte[] data = burnData(amount);
+    return createInstruction(invokedTokenProgram, keys, data);
   }
 
   public static Instruction burnMultisig(final SolanaAccounts solanaAccounts,
@@ -952,13 +1206,29 @@ public final class TokenProgram {
                                          final PublicKey authority,
                                          final List<PublicKey> signerAccounts,
                                          final long amount) {
-    final var keys = burnMultisigKeys(mint, account, authority, signerAccounts);
-    final byte[] data = burnData(amount);
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return burnMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        mint,
+        account,
+        authority,
+        signerAccounts,
+        amount
+    );
   }
 
   private static byte[] burnCheckedData(final long amount, final int decimals) {
     return checkedAmountData(TokenInstruction.BurnChecked, amount, decimals);
+  }
+
+  public static Instruction burnChecked(final AccountMeta invokedTokenProgram,
+                                        final PublicKey mint,
+                                        final int decimals,
+                                        final PublicKey account,
+                                        final PublicKey authority,
+                                        final long amount) {
+    final var keys = burnKeys(mint, account, authority);
+    final byte[] data = burnCheckedData(amount, decimals);
+    return createInstruction(invokedTokenProgram, keys, data);
   }
 
   public static Instruction burnChecked(final SolanaAccounts solanaAccounts,
@@ -967,9 +1237,26 @@ public final class TokenProgram {
                                         final PublicKey account,
                                         final PublicKey authority,
                                         final long amount) {
-    final var keys = burnKeys(mint, account, authority);
+    return burnChecked(
+        solanaAccounts.invokedTokenProgram(),
+        mint,
+        decimals,
+        account,
+        authority,
+        amount
+    );
+  }
+
+  public static Instruction burnCheckedMultisig(final AccountMeta invokedTokenProgram,
+                                                final PublicKey mint,
+                                                final int decimals,
+                                                final PublicKey account,
+                                                final PublicKey authority,
+                                                final List<PublicKey> signerAccounts,
+                                                final long amount) {
+    final var keys = burnMultisigKeys(mint, account, authority, signerAccounts);
     final byte[] data = burnCheckedData(amount, decimals);
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return createInstruction(invokedTokenProgram, keys, data);
   }
 
   public static Instruction burnCheckedMultisig(final SolanaAccounts solanaAccounts,
@@ -979,9 +1266,15 @@ public final class TokenProgram {
                                                 final PublicKey authority,
                                                 final List<PublicKey> signerAccounts,
                                                 final long amount) {
-    final var keys = burnMultisigKeys(mint, account, authority, signerAccounts);
-    final byte[] data = burnCheckedData(amount, decimals);
-    return createInstruction(solanaAccounts.invokedTokenProgram(), keys, data);
+    return burnCheckedMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        mint,
+        decimals,
+        account,
+        authority,
+        signerAccounts,
+        amount
+    );
   }
 
   public static Instruction closeAccount(final AccountMeta invokedProgram,
@@ -996,20 +1289,37 @@ public final class TokenProgram {
     return createInstruction(invokedProgram, keys, TokenInstruction.CloseAccount.discriminatorBytes);
   }
 
+  public static Instruction closeAccount(final SolanaAccounts solanaAccounts,
+                                         final PublicKey tokenAccount,
+                                         final PublicKey lamportDestination,
+                                         final PublicKey owner) {
+    return closeAccount(solanaAccounts.invokedSystemProgram(), tokenAccount, lamportDestination, owner);
+  }
+
   public static Instruction closeAccountMultisig(final AccountMeta invokedProgram,
                                                  final PublicKey tokenAccount,
                                                  final PublicKey lamportDestination,
                                                  final PublicKey owner,
                                                  final List<PublicKey> signerAccounts) {
-    final var keys = new AccountMeta[3 + signerAccounts.size()];
+    final var keys = initSigners(3, signerAccounts);
     keys[0] = createWrite(tokenAccount);
     keys[1] = createWrite(lamportDestination);
     keys[2] = createRead(owner);
-    int i = 3;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
     return createInstruction(invokedProgram, Arrays.asList(keys), TokenInstruction.CloseAccount.discriminatorBytes);
+  }
+
+  public static Instruction closeAccountMultisig(final SolanaAccounts solanaAccounts,
+                                                 final PublicKey tokenAccount,
+                                                 final PublicKey lamportDestination,
+                                                 final PublicKey owner,
+                                                 final List<PublicKey> signerAccounts) {
+    return closeAccountMultisig(
+        solanaAccounts.invokedSystemProgram(),
+        tokenAccount,
+        lamportDestination,
+        owner,
+        signerAccounts
+    );
   }
 
   public static Instruction freezeAccount(final AccountMeta invokedProgram,
@@ -1024,20 +1334,37 @@ public final class TokenProgram {
     return createInstruction(invokedProgram, keys, TokenInstruction.FreezeAccount.discriminatorBytes);
   }
 
+  public static Instruction freezeAccount(final SolanaAccounts solanaAccounts,
+                                          final PublicKey account,
+                                          final PublicKey mint,
+                                          final PublicKey freezeAuthority) {
+    return freezeAccount(solanaAccounts.invokedSystemProgram(), account, mint, freezeAuthority);
+  }
+
   public static Instruction freezeAccountMultisig(final AccountMeta invokedProgram,
                                                   final PublicKey account,
                                                   final PublicKey mint,
                                                   final PublicKey freezeAuthority,
                                                   final List<PublicKey> signerAccounts) {
-    final var keys = new AccountMeta[3 + signerAccounts.size()];
+    final var keys = initSigners(3, signerAccounts);
     keys[0] = createWrite(account);
     keys[1] = createRead(mint);
     keys[2] = createRead(freezeAuthority);
-    int i = 3;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
     return createInstruction(invokedProgram, Arrays.asList(keys), TokenInstruction.FreezeAccount.discriminatorBytes);
+  }
+
+  public static Instruction freezeAccountMultisig(final SolanaAccounts solanaAccounts,
+                                                  final PublicKey account,
+                                                  final PublicKey mint,
+                                                  final PublicKey freezeAuthority,
+                                                  final List<PublicKey> signerAccounts) {
+    return freezeAccountMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        account,
+        mint,
+        freezeAuthority,
+        signerAccounts
+    );
   }
 
   public static Instruction thawAccount(final AccountMeta invokedProgram,
@@ -1052,30 +1379,42 @@ public final class TokenProgram {
     return createInstruction(invokedProgram, keys, TokenInstruction.ThawAccount.discriminatorBytes);
   }
 
+  public static Instruction thawAccount(final SolanaAccounts solanaAccounts,
+                                        final PublicKey account,
+                                        final PublicKey mint,
+                                        final PublicKey authority) {
+    return thawAccount(solanaAccounts.invokedSystemProgram(), account, mint, authority);
+  }
+
   public static Instruction thawAccountMultisig(final AccountMeta invokedProgram,
                                                 final PublicKey account,
                                                 final PublicKey mint,
                                                 final PublicKey authority,
                                                 final List<PublicKey> signerAccounts) {
-    final var keys = new AccountMeta[3 + signerAccounts.size()];
+    final var keys = initSigners(3, signerAccounts);
     keys[0] = createWrite(account);
     keys[1] = createRead(mint);
     keys[2] = createRead(authority);
-    int i = 3;
-    for (final var signerAccount : signerAccounts) {
-      keys[i++] = createReadOnlySigner(signerAccount);
-    }
     return createInstruction(invokedProgram, Arrays.asList(keys), TokenInstruction.ThawAccount.discriminatorBytes);
+  }
+
+  public static Instruction thawAccountMultisig(final SolanaAccounts solanaAccounts,
+                                                final PublicKey account,
+                                                final PublicKey mint,
+                                                final PublicKey authority,
+                                                final List<PublicKey> signerAccounts) {
+    return thawAccountMultisig(
+        solanaAccounts.invokedTokenProgram(),
+        account,
+        mint,
+        authority,
+        signerAccounts
+    );
   }
 
   public static Instruction syncNative(final AccountMeta invokedProgram, final PublicKey solTokenAccount) {
     final var keys = List.of(createWrite(solTokenAccount));
     return createInstruction(invokedProgram, keys, TokenInstruction.SyncNative.discriminatorBytes);
-  }
-
-  public static Instruction getAccountDataSize(final AccountMeta invokedProgram, final PublicKey mint) {
-    final var keys = List.of(createRead(mint));
-    return createInstruction(invokedProgram, keys, TokenInstruction.GetAccountDataSize.discriminatorBytes);
   }
 
   public static Instruction initializeImmutableOwner(final AccountMeta invokedProgram, final PublicKey account) {

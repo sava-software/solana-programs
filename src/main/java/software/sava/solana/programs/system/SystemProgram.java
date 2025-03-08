@@ -16,6 +16,8 @@ import static software.sava.core.programs.Discriminator.NATIVE_DISCRIMINATOR_LEN
 import static software.sava.core.programs.Discriminator.serializeDiscriminator;
 import static software.sava.core.tx.Instruction.createInstruction;
 
+// https://github.com/solana-labs/solana-program-library?tab=readme-ov-file#migrated-packages
+// https://github.com/anza-xyz/pinocchio/tree/main/programs
 // https://github.com/solana-labs/solana/blob/master/sdk/program/src/system_instruction.rs
 public final class SystemProgram {
 

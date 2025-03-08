@@ -11,11 +11,10 @@ import java.util.List;
 
 import static software.sava.core.accounts.meta.AccountMeta.*;
 
+// https://github.com/solana-program/associated-token-account/blob/main/program/src/instruction.rs
 public final class AssociatedTokenProgram {
 
   public enum Instructions implements Discriminator {
-
-    // https://github.com/solana-labs/solana-program-library/blob/d0f48a6ba34acb01dd0fde5368e73b406c544837/associated-token-account/program/src/instruction.rs#L15
 
     // Creates an associated token account for the given wallet address and
     // token mint Returns an error if the account exists.
@@ -243,6 +242,31 @@ public final class AssociatedTokenProgram {
                                           final PublicKey fundingAccount,
                                           final PublicKey mint) {
     return createATA2022(idempotent, solanaAccounts, fundingAccount, fundingAccount, mint);
+  }
+
+  public static Instruction recoverNested(final SolanaAccounts solanaAccounts,
+                                          final PublicKey nestedTokenAccount,
+                                          final PublicKey nestedTokenMint,
+                                          final PublicKey walletTokenAccount,
+                                          final PublicKey ownerTokenAccount,
+                                          final PublicKey ownerTokenMint,
+                                          final PublicKey owner,
+                                          final AccountMeta tokenProgram) {
+    final var keys = List.of(
+        createWrite(nestedTokenAccount),
+        createRead(nestedTokenMint),
+        createWrite(walletTokenAccount),
+        createRead(ownerTokenAccount),
+        createRead(ownerTokenMint),
+        createWritableSigner(owner),
+        solanaAccounts.readSystemProgram(),
+        tokenProgram
+    );
+    return Instruction.createInstruction(
+        solanaAccounts.invokedAssociatedTokenAccountProgram(),
+        keys,
+        Instructions.RecoverNested.discriminatorBytes
+    );
   }
 
   private AssociatedTokenProgram() {
