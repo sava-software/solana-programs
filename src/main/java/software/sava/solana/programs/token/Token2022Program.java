@@ -17,7 +17,8 @@ import static software.sava.core.accounts.meta.AccountMeta.*;
 import static software.sava.core.tx.Instruction.createInstruction;
 import static software.sava.solana.programs.token.TokenProgram.initSigners;
 
-public class Token2022Program {
+// https://github.com/solana-program/token-2022
+public final class Token2022Program {
 
   public enum TokenInstruction implements Discriminator {
 
@@ -1371,5 +1372,8 @@ public class Token2022Program {
         authority,
         signerAccounts
     );
+  }
+
+  private Token2022Program() {
   }
 }

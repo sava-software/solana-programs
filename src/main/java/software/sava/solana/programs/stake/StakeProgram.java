@@ -18,6 +18,7 @@ import static software.sava.core.accounts.meta.AccountMeta.*;
 import static software.sava.core.programs.Discriminator.NATIVE_DISCRIMINATOR_LENGTH;
 import static software.sava.core.programs.Discriminator.serializeDiscriminator;
 
+// https://github.com/solana-program/stake
 public final class StakeProgram {
 
   public enum Instructions implements Discriminator {
@@ -251,7 +252,43 @@ public final class StakeProgram {
     //   3. '[]' Address of config account that carries stake config
     //   4. '[SIGNER]' Stake authority
     //
-    Redelegate;
+    Redelegate,
+
+    /// Move stake between accounts with the same authorities and lockups, using Staker authority.
+    ///
+    /// The source account must be fully active. If its entire delegation is moved, it immediately
+    /// becomes inactive. Otherwise, at least the minimum delegation of active stake must remain.
+    ///
+    /// The destination account must be fully active or fully inactive. If it is active, it must
+    /// be delegated to the same vote account as the source. If it is inactive, it
+    /// immediately becomes active, and must contain at least the minimum delegation. The
+    /// destination must be pre-funded with the rent-exempt reserve.
+    ///
+    /// This instruction only affects or moves active stake. Additional unstaked lamports are never
+    /// moved, activated, or deactivated, and accounts are never deallocated.
+    ///
+    /// # Account references
+    ///   0. `[WRITE]` Active source stake account
+    ///   1. `[WRITE]` Active or inactive destination stake account
+    ///   2. `[SIGNER]` Stake authority
+    ///
+    /// The `u64` is the portion of the stake to move, which may be the entire delegation
+    MoveStake, //(u64),
+
+    /// Move unstaked lamports between accounts with the same authorities and lockups, using Staker
+    /// authority.
+    ///
+    /// The source account must be fully active or fully inactive. The destination may be in any
+    /// mergeable state (active, inactive, or activating, but not in warmup cooldown). Only lamports that
+    /// are neither backing a delegation nor required for rent-exemption may be moved.
+    ///
+    /// # Account references
+    ///   0. `[WRITE]` Active or inactive source stake account
+    ///   1. `[WRITE]` Mergeable destination stake account
+    ///   2. `[SIGNER]` Stake authority
+    ///
+    /// The `u64` is the portion of available lamports to move
+    MoveLamports; //(u64);
 
     private final byte[] data;
 
@@ -319,7 +356,6 @@ public final class StakeProgram {
         createWrite(unInitializedStakeAccount),
         createReadOnlySigner(stakeAuthority)
     );
-
 
     final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
     Instructions.Split.write(data);
@@ -724,6 +760,42 @@ public final class StakeProgram {
         keys,
         Instructions.Redelegate.data
     );
+  }
+
+  public static Instruction moveStake(final SolanaAccounts solanaAccounts,
+                                      final PublicKey sourceStakeAccount,
+                                      final PublicKey destinationStakeAccount,
+                                      final PublicKey stakeAuthority,
+                                      final long lamports) {
+    final var keys = List.of(
+        createWrite(sourceStakeAccount),
+        createWrite(destinationStakeAccount),
+        createReadOnlySigner(stakeAuthority)
+    );
+
+    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
+    Instructions.MoveStake.write(data);
+    ByteUtil.putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
+
+    return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public static Instruction moveLamports(final SolanaAccounts solanaAccounts,
+                                         final PublicKey sourceStakeAccount,
+                                         final PublicKey destinationStakeAccount,
+                                         final PublicKey stakeAuthority,
+                                         final long lamports) {
+    final var keys = List.of(
+        createWrite(sourceStakeAccount),
+        createWrite(destinationStakeAccount),
+        createReadOnlySigner(stakeAuthority)
+    );
+
+    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
+    Instructions.MoveLamports.write(data);
+    ByteUtil.putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
+
+    return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
 
   private StakeProgram() {

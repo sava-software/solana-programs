@@ -14,6 +14,7 @@ import static software.sava.core.accounts.PublicKey.findProgramAddress;
 import static software.sava.core.accounts.meta.AccountMeta.*;
 import static software.sava.core.encoding.ByteUtil.putInt64LE;
 
+// https://github.com/solana-program/stake-pool/blob/main/program/src/instruction.rs
 // https://github.com/igneous-labs/sanctum-spl-stake-pool/blob/sanctum-spl-pool-deploy/stake-pool/program/src/instruction.rs#L53
 public final class StakePoolProgram {
 
