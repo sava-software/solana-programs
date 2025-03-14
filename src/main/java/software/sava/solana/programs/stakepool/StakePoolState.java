@@ -1,6 +1,7 @@
 package software.sava.solana.programs.stakepool;
 
 import software.sava.core.accounts.PublicKey;
+import software.sava.core.borsh.Borsh;
 import software.sava.core.encoding.ByteUtil;
 import software.sava.solana.programs.stake.LockUp;
 
@@ -212,7 +213,7 @@ public record StakePoolState(PublicKey address,
     );
   }
 
-  public record Fee(long denominator, long numerator) implements Comparable<Fee> {
+  public record Fee(long denominator, long numerator) implements Comparable<Fee>, Borsh {
 
     static final int BYTES = 16;
 
@@ -241,6 +242,18 @@ public record StakePoolState(PublicKey address,
       } else {
         return Double.compare(toRatio(), o.toRatio());
       }
+    }
+
+    @Override
+    public int l() {
+      return BYTES;
+    }
+
+    @Override
+    public int write(final byte[] data, final int offset) {
+      ByteUtil.putInt64LE(data, offset, denominator);
+      ByteUtil.putInt64LE(data, offset + Long.BYTES, numerator);
+      return BYTES;
     }
   }
 

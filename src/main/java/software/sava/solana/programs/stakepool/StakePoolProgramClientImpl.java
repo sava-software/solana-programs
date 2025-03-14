@@ -4,7 +4,6 @@ import software.sava.core.accounts.PublicKey;
 import software.sava.core.accounts.SolanaAccounts;
 import software.sava.core.accounts.meta.AccountMeta;
 import software.sava.core.tx.Instruction;
-import software.sava.rpc.json.http.response.AccountInfo;
 import software.sava.solana.programs.clients.NativeProgramAccountClient;
 
 final class StakePoolProgramClientImpl implements StakePoolProgramClient {
@@ -43,13 +42,13 @@ final class StakePoolProgramClientImpl implements StakePoolProgramClient {
   }
 
   @Override
-  public Instruction depositSol(final AccountInfo<StakePoolState> stakePoolStateAccountInfo,
+  public Instruction depositSol(final PublicKey stakePoolProgram,
+                                final StakePoolState stakePoolState,
                                 final PublicKey poolTokenATA,
                                 final long lamportsIn) {
-    final var stakePoolState = stakePoolStateAccountInfo.data();
     return StakePoolProgram.depositSol(
         accounts,
-        AccountMeta.createInvoked(stakePoolStateAccountInfo.owner()),
+        AccountMeta.createInvoked(stakePoolProgram),
         stakePoolState.address(),
         stakePoolState.reserveStake(),
         owner,
@@ -63,14 +62,14 @@ final class StakePoolProgramClientImpl implements StakePoolProgramClient {
   }
 
   @Override
-  public Instruction depositSolWithSlippage(final AccountInfo<StakePoolState> stakePoolStateAccountInfo,
+  public Instruction depositSolWithSlippage(final PublicKey stakePoolProgram,
+                                            final StakePoolState stakePoolState,
                                             final PublicKey poolTokenATA,
                                             final long lamportsIn,
                                             final long minimumPoolTokensOut) {
-    final var stakePoolState = stakePoolStateAccountInfo.data();
     return StakePoolProgram.depositSolWithSlippage(
         accounts,
-        AccountMeta.createInvoked(stakePoolStateAccountInfo.owner()),
+        AccountMeta.createInvoked(stakePoolProgram),
         stakePoolState.address(),
         stakePoolState.reserveStake(),
         owner,
@@ -85,14 +84,14 @@ final class StakePoolProgramClientImpl implements StakePoolProgramClient {
   }
 
   @Override
-  public Instruction depositStake(final AccountInfo<StakePoolState> stakePoolStateAccountInfo,
+  public Instruction depositStake(final PublicKey stakePoolProgram,
+                                  final StakePoolState stakePoolState,
                                   final PublicKey depositStakeAccount,
                                   final PublicKey validatorStakeAccount,
                                   final PublicKey poolTokenATA) {
-    final var stakePoolState = stakePoolStateAccountInfo.data();
     return StakePoolProgram.depositStake(
         accounts,
-        AccountMeta.createInvoked(stakePoolStateAccountInfo.owner()),
+        AccountMeta.createInvoked(stakePoolProgram),
         stakePoolState.address(),
         stakePoolState.validatorList(),
         owner,
@@ -108,15 +107,15 @@ final class StakePoolProgramClientImpl implements StakePoolProgramClient {
   }
 
   @Override
-  public Instruction depositStakeWithSlippage(final AccountInfo<StakePoolState> stakePoolStateAccountInfo,
+  public Instruction depositStakeWithSlippage(final PublicKey stakePoolProgram,
+                                              final StakePoolState stakePoolState,
                                               final PublicKey depositStakeAccount,
                                               final PublicKey validatorStakeAccount,
                                               final PublicKey poolTokenATA,
                                               final long minimumPoolTokensOut) {
-    final var stakePoolState = stakePoolStateAccountInfo.data();
     return StakePoolProgram.depositStakeWithSlippage(
         accounts,
-        AccountMeta.createInvoked(stakePoolStateAccountInfo.owner()),
+        AccountMeta.createInvoked(stakePoolProgram),
         stakePoolState.address(),
         stakePoolState.validatorList(),
         owner,
@@ -132,15 +131,16 @@ final class StakePoolProgramClientImpl implements StakePoolProgramClient {
     );
   }
 
+
   @Override
-  public Instruction withdrawSolWithSlippage(final AccountInfo<StakePoolState> stakePoolStateAccountInfo,
+  public Instruction withdrawSolWithSlippage(final PublicKey stakePoolProgram,
+                                             final StakePoolState stakePoolState,
                                              final PublicKey poolTokenATA,
                                              final long poolTokenAmount,
                                              final long lamportsOut) {
-    final var stakePoolState = stakePoolStateAccountInfo.data();
     return StakePoolProgram.withdrawSolWithSlippage(
         accounts,
-        AccountMeta.createInvoked(stakePoolStateAccountInfo.owner()),
+        AccountMeta.createInvoked(stakePoolProgram),
         stakePoolState.address(),
         owner,
         poolTokenATA,
@@ -176,17 +176,17 @@ final class StakePoolProgramClientImpl implements StakePoolProgramClient {
   }
 
   @Override
-  public Instruction withdrawStakeWithSlippage(final AccountInfo<StakePoolState> stakePoolStateAccountInfo,
+  public Instruction withdrawStakeWithSlippage(final PublicKey poolProgram,
+                                               final StakePoolState stakePoolState,
                                                final PublicKey validatorOrReserveStakeAccount,
                                                final PublicKey uninitializedStakeAccount,
                                                final PublicKey stakeAccountWithdrawalAuthority,
                                                final PublicKey poolTokenATA,
                                                final long poolTokenAmount,
                                                final long lamportsOut) {
-    final var stakePoolState = stakePoolStateAccountInfo.data();
     return StakePoolProgram.withdrawStakeWithSlippage(
         accounts,
-        AccountMeta.createInvoked(stakePoolStateAccountInfo.owner()),
+        AccountMeta.createInvoked(poolProgram),
         stakePoolState.address(),
         stakePoolState.validatorList(),
         validatorOrReserveStakeAccount,
@@ -197,24 +197,6 @@ final class StakePoolProgramClientImpl implements StakePoolProgramClient {
         stakePoolState.managerFeeAccount(),
         stakePoolState.poolMint(),
         stakePoolState.tokenProgramId(),
-        poolTokenAmount,
-        lamportsOut
-    );
-  }
-
-  @Override
-  public Instruction withdrawStakeWithSlippage(final AccountInfo<StakePoolState> stakePoolStateAccountInfo,
-                                               final PublicKey validatorOrReserveStakeAccount,
-                                               final PublicKey uninitializedStakeAccount,
-                                               final PublicKey poolTokenATA,
-                                               final long poolTokenAmount,
-                                               final long lamportsOut) {
-    return withdrawStakeWithSlippage(
-        stakePoolStateAccountInfo,
-        validatorOrReserveStakeAccount,
-        uninitializedStakeAccount,
-        owner,
-        poolTokenATA,
         poolTokenAmount,
         lamportsOut
     );
@@ -242,20 +224,6 @@ final class StakePoolProgramClientImpl implements StakePoolProgramClient {
         stakePoolState.poolMint(),
         stakePoolState.tokenProgramId(),
         poolTokenAmount
-    );
-  }
-
-  @Override
-  public Instruction updateStakePoolBalance(final AccountInfo<StakePoolState> stakePoolStateAccountInfo) {
-    final var stakePoolState = stakePoolStateAccountInfo.data();
-    return StakePoolProgram.updateStakePoolBalance(
-        AccountMeta.createInvoked(stakePoolStateAccountInfo.owner()),
-        stakePoolState.address(),
-        stakePoolState.validatorList(),
-        stakePoolState.reserveStake(),
-        stakePoolState.managerFeeAccount(),
-        stakePoolState.poolMint(),
-        stakePoolState.tokenProgramId()
     );
   }
 }

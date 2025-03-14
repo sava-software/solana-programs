@@ -70,9 +70,10 @@ record NativeProgramClientImpl(SolanaAccounts accounts) implements NativeProgram
                                                                                 final PublicKey key,
                                                                                 final int offset) {
     return fetchStakeAccounts(rpcClient, List.of(
-        StakeAccount.DATA_SIZE_FILTER,
-        createMemCompFilter(offset, key)
-    ));
+            StakeAccount.DATA_SIZE_FILTER,
+            createMemCompFilter(offset, key)
+        )
+    );
   }
 
   private CompletableFuture<List<AccountInfo<StakeAccount>>> fetchStakeAccounts(final SolanaRpcClient rpcClient,
@@ -83,10 +84,11 @@ record NativeProgramClientImpl(SolanaAccounts accounts) implements NativeProgram
       return fetchStakeAccounts(rpcClient, key, offset);
     } else {
       return fetchStakeAccounts(rpcClient, List.of(
-          StakeAccount.DATA_SIZE_FILTER,
-          createStateFilter(stakeState),
-          createMemCompFilter(offset, key)
-      ));
+              StakeAccount.DATA_SIZE_FILTER,
+              createStateFilter(stakeState),
+              createMemCompFilter(offset, key)
+          )
+      );
     }
   }
 
@@ -109,10 +111,11 @@ record NativeProgramClientImpl(SolanaAccounts accounts) implements NativeProgram
                                                                                                           final StakeState stakeState,
                                                                                                           final PublicKey withdrawAuthority) {
     return fetchStakeAccounts(rpcClient, List.of(
-        StakeAccount.DATA_SIZE_FILTER,
-        createStateFilter(stakeState),
-        createMemCompFilter(STAKE_AUTHORITY_OFFSET, withdrawAuthority, withdrawAuthority)
-    ));
+            StakeAccount.DATA_SIZE_FILTER,
+            createStateFilter(stakeState),
+            createMemCompFilter(STAKE_AUTHORITY_OFFSET, withdrawAuthority, withdrawAuthority)
+        )
+    );
   }
 
   @Override
@@ -135,28 +138,32 @@ record NativeProgramClientImpl(SolanaAccounts accounts) implements NativeProgram
                                                                                                                final PublicKey voteAccount,
                                                                                                                final PublicKey withdrawAuthority) {
     return fetchStakeAccounts(rpcClient, List.of(
-        StakeAccount.DATA_SIZE_FILTER,
-        createStateFilter(stakeState),
-        createMemCompFilter(WITHDRAW_AUTHORITY_OFFSET, withdrawAuthority),
-        createMemCompFilter(VOTER_PUBLIC_KEY_OFFSET, voteAccount)
-    ));
+            StakeAccount.DATA_SIZE_FILTER,
+            createStateFilter(stakeState),
+            createMemCompFilter(WITHDRAW_AUTHORITY_OFFSET, withdrawAuthority),
+            createMemCompFilter(VOTER_PUBLIC_KEY_OFFSET, voteAccount)
+        )
+    );
   }
 
   @Override
-  public CompletableFuture<List<AccountInfo<StakeAccount>>> fetchStakeAccountsForValidatorAndStakeAndWithdrawAuthority(final SolanaRpcClient rpcClient,
-                                                                                                                       final StakeState stakeState,
-                                                                                                                       final PublicKey voteAccount,
-                                                                                                                       final PublicKey withdrawAuthority) {
+  public CompletableFuture<List<AccountInfo<StakeAccount>>> fetchStakeAccountsForValidatorAndStakeAndWithdrawAuthority(
+      final SolanaRpcClient rpcClient,
+      final StakeState stakeState,
+      final PublicKey voteAccount,
+      final PublicKey withdrawAuthority) {
     return fetchStakeAccounts(rpcClient, List.of(
-        StakeAccount.DATA_SIZE_FILTER,
-        createStateFilter(stakeState),
-        createMemCompFilter(STAKE_AUTHORITY_OFFSET, withdrawAuthority, withdrawAuthority),
-        createMemCompFilter(VOTER_PUBLIC_KEY_OFFSET, voteAccount)
-    ));
+            StakeAccount.DATA_SIZE_FILTER,
+            createStateFilter(stakeState),
+            createMemCompFilter(STAKE_AUTHORITY_OFFSET, withdrawAuthority, withdrawAuthority),
+            createMemCompFilter(VOTER_PUBLIC_KEY_OFFSET, voteAccount)
+        )
+    );
   }
 
   @Override
-  public CompletableFuture<List<AccountInfo<AddressLookupTable>>> fetchLookupTableAccountsByAuthority(final SolanaRpcClient rpcClient, final PublicKey authority) {
+  public CompletableFuture<List<AccountInfo<AddressLookupTable>>> fetchLookupTableAccountsByAuthority(final SolanaRpcClient rpcClient,
+                                                                                                      final PublicKey authority) {
     final var filters = List.of(createMemCompFilter(AddressLookupTable.AUTHORITY_OFFSET, authority));
     return rpcClient.getProgramAccounts(accounts.addressLookupTableProgram(), filters, AddressLookupTable.FACTORY);
   }
@@ -376,5 +383,31 @@ record NativeProgramClientImpl(SolanaAccounts accounts) implements NativeProgram
   @Override
   public Instruction deactivateStakeAccount(final PublicKey delegatedStakeAccount, final PublicKey stakeAuthority) {
     return StakeProgram.deactivate(accounts, delegatedStakeAccount, stakeAuthority);
+  }
+
+  @Override
+  public Instruction moveStake(final StakeAccount sourceStakeAccount,
+                               final PublicKey destinationStakeAccount,
+                               final long lamports) {
+    return StakeProgram.moveStake(
+        accounts,
+        sourceStakeAccount.address(),
+        destinationStakeAccount,
+        sourceStakeAccount.stakeAuthority(),
+        lamports
+    );
+  }
+
+  @Override
+  public Instruction moveLamports(final StakeAccount sourceStakeAccount,
+                                  final PublicKey destinationStakeAccount,
+                                  final long lamports) {
+    return StakeProgram.moveLamports(
+        accounts,
+        sourceStakeAccount.address(),
+        destinationStakeAccount,
+        sourceStakeAccount.stakeAuthority(),
+        lamports
+    );
   }
 }

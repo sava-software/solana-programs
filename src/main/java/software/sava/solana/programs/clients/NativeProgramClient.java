@@ -375,4 +375,12 @@ public interface NativeProgramClient {
   default List<Instruction> deactivateStakeAccounts(final Collection<StakeAccount> delegatedStakeAccounts) {
     return delegatedStakeAccounts.stream().map(this::deactivateStakeAccount).toList();
   }
+
+  Instruction moveStake(final StakeAccount sourceStakeAccount,
+                        final PublicKey destinationStakeAccount,
+                        final long lamports);
+
+  Instruction moveLamports(final StakeAccount sourceStakeAccount,
+                           final PublicKey destinationStakeAccount,
+                           final long lamports);
 }

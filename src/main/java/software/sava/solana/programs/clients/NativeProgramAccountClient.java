@@ -241,17 +241,49 @@ public interface NativeProgramAccountClient {
     return transferSolLamportsWithSeed(accountWithSeed, ownerPublicKey(), lamports, programOwner);
   }
 
-  Instruction transferToken(final PublicKey fromTokenAccount,
+  Instruction transferToken(final AccountMeta invokedTokenProgram,
+                            final PublicKey fromTokenAccount,
                             final PublicKey toTokenAccount,
-                            final long lamports);
+                            final long scaledAmount);
 
-  Instruction transferTokenChecked(final PublicKey fromTokenAccount,
+  default Instruction transferToken(final PublicKey fromTokenAccount,
+                                    final PublicKey toTokenAccount,
+                                    final long scaledAmount) {
+    return transferToken(
+        solanaAccounts().invokedTokenProgram(),
+        fromTokenAccount,
+        toTokenAccount,
+        scaledAmount
+    );
+  }
+
+  Instruction transferTokenChecked(final AccountMeta invokedTokenProgram,
+                                   final PublicKey fromTokenAccount,
                                    final PublicKey toTokenAccount,
-                                   final long lamports,
+                                   final long scaledAmount,
                                    final int decimals,
                                    final PublicKey tokenMint);
 
-  Instruction closeTokenAccount(final PublicKey tokenAccount);
+  default Instruction transferTokenChecked(final PublicKey fromTokenAccount,
+                                           final PublicKey toTokenAccount,
+                                           final long scaledAmount,
+                                           final int decimals,
+                                           final PublicKey tokenMint) {
+    return transferTokenChecked(
+        solanaAccounts().invokedTokenProgram(),
+        fromTokenAccount,
+        toTokenAccount,
+        scaledAmount,
+        decimals,
+        tokenMint
+    );
+  }
+
+  Instruction closeTokenAccount(final AccountMeta invokedTokenProgram, final PublicKey tokenAccount);
+
+  default Instruction closeTokenAccount(final PublicKey tokenAccount) {
+    return closeTokenAccount(solanaAccounts().invokedTokenProgram(), tokenAccount);
+  }
 
   default Instruction createATAForFundedBy(boolean idempotent,
                                            final PublicKey fundingAccount,

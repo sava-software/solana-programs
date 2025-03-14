@@ -4,9 +4,12 @@ import software.sava.core.accounts.ProgramDerivedAddress;
 import software.sava.core.accounts.PublicKey;
 import software.sava.core.accounts.SolanaAccounts;
 import software.sava.core.accounts.meta.AccountMeta;
+import software.sava.core.borsh.Borsh;
+import software.sava.core.encoding.ByteUtil;
 import software.sava.core.programs.Discriminator;
 import software.sava.core.tx.Instruction;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -733,6 +736,409 @@ public final class StakePoolProgram {
     );
   }
 
+  public static ProgramDerivedAddress findStakePoolDepositAuthority(final PublicKey stakePool,
+                                                                    final PublicKey stakePoolProgram) {
+    return findProgramAddress(
+        List.of(stakePool.toByteArray(), "deposit".getBytes(UTF_8)),
+        stakePoolProgram
+    );
+  }
+
+  public static Instruction initialize(final AccountMeta invokedStakePoolProgram,
+                                       final PublicKey newStakePool,
+                                       final PublicKey manager,
+                                       final PublicKey staker,
+                                       final PublicKey uninitializedValidatorStakeList,
+                                       final PublicKey reserveStakeAccount,
+                                       final PublicKey poolTokenMint,
+                                       final PublicKey feeAccount,
+                                       final PublicKey tokenProgram,
+                                       final PublicKey depositAuthority,
+                                       final StakePoolState.Fee fee,
+                                       final StakePoolState.Fee withdrawalFee,
+                                       final StakePoolState.Fee depositFee,
+                                       final int referralFee,
+                                       final int maxValidators) {
+    final var stakePoolWithdrawAuthority = findStakePoolWithdrawAuthority(
+        newStakePool,
+        invokedStakePoolProgram.publicKey()
+    );
+    final var keys = List.of(
+        createWrite(newStakePool),
+        createReadOnlySigner(manager),
+        createRead(staker),
+        createRead(stakePoolWithdrawAuthority.publicKey()),
+        createWrite(uninitializedValidatorStakeList),
+        createRead(reserveStakeAccount),
+        createRead(poolTokenMint),
+        createRead(feeAccount),
+        createRead(tokenProgram),
+        createRead(depositAuthority)
+    );
+
+    final byte[] data = new byte[1
+        + StakePoolState.Fee.BYTES
+        + StakePoolState.Fee.BYTES
+        + StakePoolState.Fee.BYTES
+        + 1
+        + Integer.BYTES
+        ];
+
+    int i = Instructions.Initialize.write(data);
+    i += fee.write(data, i);
+    i += withdrawalFee.write(data, i);
+    i += depositFee.write(data, i);
+    data[i] = (byte) referralFee;
+    ByteUtil.putInt32LE(data, ++i, maxValidators);
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, data);
+  }
+
+  public static Instruction initialize(final AccountMeta invokedStakePoolProgram,
+                                       final PublicKey newStakePool,
+                                       final PublicKey manager,
+                                       final PublicKey staker,
+                                       final PublicKey uninitializedValidatorListStorageAccount,
+                                       final PublicKey reserveStakeAccount,
+                                       final PublicKey poolTokenMint,
+                                       final PublicKey feeAccount,
+                                       final PublicKey tokenProgram,
+                                       final StakePoolState.Fee fee,
+                                       final StakePoolState.Fee withdrawalFee,
+                                       final StakePoolState.Fee depositFee,
+                                       final int referralFee,
+                                       final int maxValidators) {
+    final var stakePoolDepositAuthority = findStakePoolDepositAuthority(
+        newStakePool,
+        invokedStakePoolProgram.publicKey()
+    );
+    return initialize(
+        invokedStakePoolProgram,
+        newStakePool,
+        manager,
+        staker,
+        uninitializedValidatorListStorageAccount,
+        reserveStakeAccount,
+        poolTokenMint,
+        feeAccount,
+        tokenProgram,
+        stakePoolDepositAuthority.publicKey(),
+        fee,
+        withdrawalFee,
+        depositFee,
+        referralFee,
+        maxValidators
+    );
+  }
+
+  public static List<AccountMeta> addValidatorToPoolKeys(final SolanaAccounts solanaAccounts,
+                                                         final AccountMeta invokedStakePoolProgram,
+                                                         final PublicKey stakePool,
+                                                         final PublicKey staker,
+                                                         final PublicKey reserveStakeAccount,
+                                                         final PublicKey validatorListStorageAccount,
+                                                         final PublicKey stakeAccount,
+                                                         final PublicKey validator) {
+    final var stakePoolWithdrawAuthority = findStakePoolWithdrawAuthority(
+        stakePool,
+        invokedStakePoolProgram.publicKey()
+    );
+    return List.of(
+        createWrite(stakePool),
+        createReadOnlySigner(staker),
+        createWrite(reserveStakeAccount),
+        createRead(stakePoolWithdrawAuthority.publicKey()),
+        createWrite(validatorListStorageAccount),
+        createWrite(stakeAccount),
+        createRead(validator),
+        solanaAccounts.readRentSysVar(),
+        solanaAccounts.readClockSysVar(),
+        solanaAccounts.readStakeHistorySysVar(),
+        solanaAccounts.readStakeConfig(),
+        solanaAccounts.readSystemProgram(),
+        solanaAccounts.readStakeProgram()
+    );
+  }
+
+  public static Instruction addValidatorToPool(final SolanaAccounts solanaAccounts,
+                                               final AccountMeta invokedStakePoolProgram,
+                                               final PublicKey stakePool,
+                                               final PublicKey staker,
+                                               final PublicKey reserveStakeAccount,
+                                               final PublicKey validatorListStorageAccount,
+                                               final PublicKey stakeAccount,
+                                               final PublicKey validator) {
+    final var keys = addValidatorToPoolKeys(
+        solanaAccounts,
+        invokedStakePoolProgram,
+        stakePool,
+        staker,
+        reserveStakeAccount,
+        validatorListStorageAccount,
+        stakeAccount,
+        validator
+    );
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, Instructions.AddValidatorToPool.data);
+  }
+
+  public static Instruction addValidatorToPool(final SolanaAccounts solanaAccounts,
+                                               final AccountMeta invokedStakePoolProgram,
+                                               final PublicKey stakePool,
+                                               final PublicKey staker,
+                                               final PublicKey reserveStakeAccount,
+                                               final PublicKey validatorListStorageAccount,
+                                               final PublicKey stakeAccount,
+                                               final PublicKey validator,
+                                               final int seed) {
+    final var keys = addValidatorToPoolKeys(
+        solanaAccounts,
+        invokedStakePoolProgram,
+        stakePool,
+        staker,
+        reserveStakeAccount,
+        validatorListStorageAccount,
+        stakeAccount,
+        validator
+    );
+
+    final byte[] data = new byte[Instructions.AddValidatorToPool.length() + Integer.BYTES];
+    int i = Instructions.AddValidatorToPool.write(data);
+    ByteUtil.putInt32LE(data, i, seed);
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, data);
+  }
+
+  public static Instruction removeValidatorFromPool(final SolanaAccounts solanaAccounts,
+                                                    final AccountMeta invokedStakePoolProgram,
+                                                    final PublicKey stakePool,
+                                                    final PublicKey staker,
+                                                    final PublicKey validatorListStorageAccount,
+                                                    final PublicKey stakeAccount,
+                                                    final PublicKey transientStakeAccount) {
+    final var stakePoolWithdrawAuthority = findStakePoolWithdrawAuthority(
+        stakePool,
+        invokedStakePoolProgram.publicKey()
+    );
+    final var keys = List.of(
+        createWrite(stakePool),
+        createReadOnlySigner(staker),
+        createRead(stakePoolWithdrawAuthority.publicKey()),
+        createWrite(validatorListStorageAccount),
+        createWrite(stakeAccount),
+        createWrite(transientStakeAccount),
+        solanaAccounts.readClockSysVar(),
+        solanaAccounts.readStakeProgram()
+    );
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, Instructions.RemoveValidatorFromPool.data);
+  }
+
+  public static Instruction decreaseValidatorStake(final SolanaAccounts solanaAccounts,
+                                                   final AccountMeta invokedStakePoolProgram,
+                                                   final PublicKey stakePool,
+                                                   final PublicKey staker,
+                                                   final PublicKey validatorList,
+                                                   final PublicKey splitFromStakeAccount,
+                                                   final PublicKey transientStakeAccount,
+                                                   final long lamports,
+                                                   final long transientStakeSeed) {
+    final var stakePoolWithdrawAuthority = findStakePoolWithdrawAuthority(
+        stakePool,
+        invokedStakePoolProgram.publicKey()
+    );
+    final var keys = List.of(
+        createRead(stakePool),
+        createReadOnlySigner(staker),
+        createRead(stakePoolWithdrawAuthority.publicKey()),
+        createWrite(validatorList),
+        createWrite(splitFromStakeAccount),
+        createWrite(transientStakeAccount),
+        solanaAccounts.readClockSysVar(),
+        solanaAccounts.readRentSysVar(),
+        solanaAccounts.readSystemProgram(),
+        solanaAccounts.readStakeProgram()
+    );
+
+    final byte[] data = new byte[1 + Long.BYTES + Long.BYTES];
+    Instructions.DecreaseValidatorStake.write(data);
+    ByteUtil.putInt64LE(data, 1, lamports);
+    ByteUtil.putInt64LE(data, 1 + Long.BYTES, transientStakeSeed);
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, data);
+  }
+
+  public static Instruction increaseValidatorStake(final SolanaAccounts solanaAccounts,
+                                                   final AccountMeta invokedStakePoolProgram,
+                                                   final PublicKey stakePool,
+                                                   final PublicKey staker,
+                                                   final PublicKey validatorList,
+                                                   final PublicKey stakePoolReserveAccount,
+                                                   final PublicKey validatorStakeAccount,
+                                                   final PublicKey validatorVoteAccount,
+                                                   final long lamports,
+                                                   final long transientStakeSeed) {
+    final var stakePoolWithdrawAuthority = findStakePoolWithdrawAuthority(
+        stakePool,
+        invokedStakePoolProgram.publicKey()
+    );
+    final var keys = List.of(
+        createRead(stakePool),
+        createReadOnlySigner(staker),
+        createRead(stakePoolWithdrawAuthority.publicKey()),
+        createWrite(validatorList),
+        createWrite(stakePoolReserveAccount),
+        createRead(validatorStakeAccount),
+        createRead(validatorVoteAccount),
+        solanaAccounts.readClockSysVar(),
+        solanaAccounts.readRentSysVar(),
+        solanaAccounts.readStakeHistorySysVar(),
+        solanaAccounts.readStakeConfig(),
+        solanaAccounts.readSystemProgram(),
+        solanaAccounts.readStakeProgram()
+    );
+
+    final byte[] data = new byte[1 + Long.BYTES + Long.BYTES];
+    Instructions.IncreaseValidatorStake.write(data);
+    ByteUtil.putInt64LE(data, 1, lamports);
+    ByteUtil.putInt64LE(data, 1 + Long.BYTES, transientStakeSeed);
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, data);
+  }
+
+  public enum PreferredValidatorType implements Borsh.Enum {
+
+    Deposit,
+    Withdraw
+  }
+
+  public static Instruction setPreferredValidator(final SolanaAccounts solanaAccounts,
+                                                  final AccountMeta invokedStakePoolProgram,
+                                                  final PublicKey stakePool,
+                                                  final PublicKey staker,
+                                                  final PublicKey validatorList,
+                                                  final PreferredValidatorType preferredValidatorType,
+                                                  final PublicKey validatorVoteAddress) {
+    final var keys = List.of(
+        createWrite(stakePool),
+        createReadOnlySigner(staker),
+        createRead(validatorList)
+    );
+
+    final byte[] data = new byte[1 + 1 + 1 + PublicKey.PUBLIC_KEY_LENGTH];
+    int i = Instructions.SetPreferredValidator.write(data);
+    i += preferredValidatorType.write(data, i);
+    Borsh.writeOptional(validatorVoteAddress, data, i);
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, data);
+  }
+
+  public static Instruction updateValidatorListBalance(final SolanaAccounts solanaAccounts,
+                                                       final AccountMeta invokedStakePoolProgram,
+                                                       final PublicKey stakePool,
+                                                       final PublicKey validatorListStorageAccount,
+                                                       final PublicKey reserveStakeAccount,
+                                                       final List<PublicKey> validatorAndTransientStakeAccounts,
+                                                       final int startIndex,
+                                                       final boolean noMerge) {
+    final var stakePoolWithdrawAuthority = findStakePoolWithdrawAuthority(
+        stakePool,
+        invokedStakePoolProgram.publicKey()
+    );
+    final var keys = new AccountMeta[7 + validatorAndTransientStakeAccounts.size()];
+    keys[0] = createRead(stakePool);
+    keys[1] = createRead(stakePoolWithdrawAuthority.publicKey());
+    keys[2] = createWrite(validatorListStorageAccount);
+    keys[3] = createWrite(reserveStakeAccount);
+    keys[4] = solanaAccounts.readClockSysVar();
+    keys[5] = solanaAccounts.readStakeHistorySysVar();
+    keys[6] = solanaAccounts.readStakeProgram();
+    int i = 7;
+    for (final var validatorStakeAccount : validatorAndTransientStakeAccounts) {
+      keys[i++] = createRead(validatorStakeAccount);
+    }
+
+    final byte[] data = new byte[1 + Integer.BYTES + 1];
+    Instructions.UpdateValidatorListBalance.write(data);
+    ByteUtil.putInt32LE(data, 1, startIndex);
+    data[1 + Integer.BYTES] = (byte) (noMerge ? 1 : 0);
+
+    return Instruction.createInstruction(invokedStakePoolProgram, Arrays.asList(keys), data);
+  }
+
+  public static Instruction cleanupRemovedValidatorEntries(final AccountMeta invokedStakePoolProgram,
+                                                           final PublicKey stakePool,
+                                                           final PublicKey validatorListStorageAccount) {
+    final var keys = List.of(createRead(stakePool), createWrite(validatorListStorageAccount));
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, Instructions.CleanupRemovedValidatorEntries);
+  }
+
+  public static Instruction setManager(final AccountMeta invokedStakePoolProgram,
+                                       final PublicKey stakePool,
+                                       final PublicKey manager,
+                                       final PublicKey newManager,
+                                       final PublicKey newManagerFeeAccount) {
+    final var keys = List.of(
+        createWrite(stakePool),
+        createReadOnlySigner(manager),
+        createReadOnlySigner(newManager),
+        createRead(newManagerFeeAccount)
+    );
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, Instructions.SetManager);
+  }
+
+  public static Instruction setFee(final AccountMeta invokedStakePoolProgram,
+                                   final PublicKey stakePool,
+                                   final PublicKey manager,
+                                   final FeeType feeType) {
+    final var keys = List.of(createWrite(stakePool), createReadOnlySigner(manager));
+
+    final byte[] data = new byte[1 + feeType.l()];
+    Instructions.SetFee.write(data);
+    feeType.write(data, 1);
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, data);
+  }
+
+  public static Instruction setStaker(final AccountMeta invokedStakePoolProgram,
+                                      final PublicKey stakePool,
+                                      final PublicKey managerOrCurrentStaker,
+                                      final PublicKey newStaker) {
+    final var keys = List.of(
+        createWrite(stakePool),
+        createReadOnlySigner(managerOrCurrentStaker),
+        createRead(newStaker)
+    );
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, Instructions.SetStaker);
+  }
+
+  public enum FundingType implements Borsh.Enum {
+    /// Sets the stake deposit authority
+    StakeDeposit,
+    /// Sets the SOL deposit authority
+    SolDeposit,
+    /// Sets the SOL withdraw authority
+    SolWithdraw,
+  }
+
+  public static Instruction setFundingAuthority(final AccountMeta invokedStakePoolProgram,
+                                                final PublicKey stakePool,
+                                                final PublicKey manager,
+                                                final PublicKey newAuthority,
+                                                final FundingType fundingType) {
+    final var keys = List.of(
+        createWrite(stakePool),
+        createReadOnlySigner(manager),
+        createRead(newAuthority)
+    );
+
+    final byte[] data = new byte[2];
+    Instructions.SetFundingAuthority.write(data);
+    fundingType.write(data, 1);
+
+    return Instruction.createInstruction(invokedStakePoolProgram, keys, data);
+  }
+
   private static List<AccountMeta> createDepositSolKeys(final SolanaAccounts solanaAccounts,
                                                         final AccountMeta invokedStakePoolProgram,
                                                         final PublicKey stakePool,
@@ -1083,7 +1489,8 @@ public final class StakePoolProgram {
         poolTokenATA,
         poolTokenFeeATA,
         poolTokenMint,
-        stakePoolTokenProgramId);
+        stakePoolTokenProgramId
+    );
 
     final byte[] data = new byte[1 + Long.BYTES + Long.BYTES];
     Instructions.WithdrawStakeWithSlippage.write(data);
@@ -1118,7 +1525,8 @@ public final class StakePoolProgram {
         poolTokenATA,
         poolTokenFeeATA,
         poolTokenMint,
-        stakePoolTokenProgramId);
+        stakePoolTokenProgramId
+    );
 
     final byte[] data = new byte[1 + Long.BYTES];
     Instructions.WithdrawStake.write(data);

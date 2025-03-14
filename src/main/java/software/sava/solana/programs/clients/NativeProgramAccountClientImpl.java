@@ -429,29 +429,31 @@ final class NativeProgramAccountClientImpl implements NativeProgramAccountClient
   }
 
   @Override
-  public Instruction transferToken(final PublicKey fromTokenAccount,
+  public Instruction transferToken(final AccountMeta invokedTokenProgram,
+                                   final PublicKey fromTokenAccount,
                                    final PublicKey toTokenAccount,
-                                   final long lamports) {
+                                   final long scaledAmount) {
     return TokenProgram.transfer(
-        solanaAccounts.invokedTokenProgram(),
+        invokedTokenProgram,
         fromTokenAccount,
         toTokenAccount,
-        lamports,
+        scaledAmount,
         owner
     );
   }
 
   @Override
-  public Instruction transferTokenChecked(final PublicKey fromTokenAccount,
+  public Instruction transferTokenChecked(final AccountMeta invokedTokenProgram,
+                                          final PublicKey fromTokenAccount,
                                           final PublicKey toTokenAccount,
-                                          final long lamports,
+                                          final long scaledAmount,
                                           final int decimals,
                                           final PublicKey tokenMint) {
     return TokenProgram.transferChecked(
-        solanaAccounts.invokedTokenProgram(),
+        invokedTokenProgram,
         fromTokenAccount,
         toTokenAccount,
-        lamports,
+        scaledAmount,
         decimals,
         owner,
         tokenMint
@@ -459,9 +461,9 @@ final class NativeProgramAccountClientImpl implements NativeProgramAccountClient
   }
 
   @Override
-  public Instruction closeTokenAccount(final PublicKey tokenAccount) {
+  public Instruction closeTokenAccount(final AccountMeta invokedTokenProgram, final PublicKey tokenAccount) {
     return TokenProgram.closeAccount(
-        solanaAccounts.invokedTokenProgram(),
+        invokedTokenProgram,
         tokenAccount,
         owner,
         owner
@@ -470,8 +472,7 @@ final class NativeProgramAccountClientImpl implements NativeProgramAccountClient
 
 
   @Override
-  public Instruction initializeStakeAccount(final PublicKey unInitializedStakeAccount,
-                                            final PublicKey staker) {
+  public Instruction initializeStakeAccount(final PublicKey unInitializedStakeAccount, final PublicKey staker) {
     return nativeProgramClient.initializeStakeAccount(
         unInitializedStakeAccount,
         staker,
@@ -485,8 +486,7 @@ final class NativeProgramAccountClientImpl implements NativeProgramAccountClient
   }
 
   @Override
-  public Instruction initializeStakeAccountChecked(final PublicKey unInitializedStakeAccount,
-                                                   final PublicKey staker) {
+  public Instruction initializeStakeAccountChecked(final PublicKey unInitializedStakeAccount, final PublicKey staker) {
     return nativeProgramClient.initializeStakeAccountChecked(
         unInitializedStakeAccount,
         staker,
@@ -502,7 +502,6 @@ final class NativeProgramAccountClientImpl implements NativeProgramAccountClient
         owner
     );
   }
-
 
   @Override
   public Instruction authorizeStakeAccount(final PublicKey stakeAccount,
