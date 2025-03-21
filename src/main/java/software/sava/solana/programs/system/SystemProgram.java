@@ -4,17 +4,21 @@ import software.sava.core.accounts.AccountWithSeed;
 import software.sava.core.accounts.PublicKey;
 import software.sava.core.accounts.SolanaAccounts;
 import software.sava.core.accounts.meta.AccountMeta;
+import software.sava.core.encoding.ByteUtil;
 import software.sava.core.programs.Discriminator;
 import software.sava.core.tx.Instruction;
+import software.sava.solana.programs.serde.SerdeUtil;
 
 import java.util.List;
 
 import static software.sava.core.accounts.PublicKey.PUBLIC_KEY_LENGTH;
 import static software.sava.core.accounts.meta.AccountMeta.*;
+import static software.sava.core.encoding.ByteUtil.getInt64LE;
 import static software.sava.core.encoding.ByteUtil.putInt64LE;
 import static software.sava.core.programs.Discriminator.NATIVE_DISCRIMINATOR_LENGTH;
 import static software.sava.core.programs.Discriminator.serializeDiscriminator;
 import static software.sava.core.tx.Instruction.createInstruction;
+import static software.sava.solana.programs.serde.SerdeUtil.readDiscriminator;
 
 // https://github.com/solana-labs/solana-program-library?tab=readme-ov-file#migrated-packages
 // https://github.com/anza-xyz/pinocchio/tree/main/programs
@@ -210,12 +214,6 @@ public final class SystemProgram {
     }
   }
 
-  private static int writeBytes(final byte[] utf8, final byte[] data, final int offset) {
-    putInt64LE(data, offset, utf8.length);
-    System.arraycopy(utf8, 0, data, offset + Long.BYTES, utf8.length);
-    return Long.BYTES + utf8.length;
-  }
-
   public static Instruction allocate(final AccountMeta invokedProgram,
                                      final PublicKey newAccount,
                                      final long space) {
@@ -223,9 +221,25 @@ public final class SystemProgram {
 
     final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
     Instructions.Allocate.write(data);
-    putInt64LE(data, 4, space);
+    putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, space);
 
     return createInstruction(invokedProgram, keys, data);
+  }
+
+  public record Allocate(byte[] discriminator, long space) {
+
+    public static Allocate read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Allocate read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      final var space = getInt64LE(data, offset + discriminator.length);
+      return new Allocate(discriminator, space);
+    }
   }
 
   public static Instruction allocateWithSeed(final AccountMeta invokedProgram,
@@ -239,15 +253,49 @@ public final class SystemProgram {
     );
 
     final byte[] seedBytes = accountWithSeed.asciiSeed();
-    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + PUBLIC_KEY_LENGTH + (Long.BYTES + seedBytes.length) + Long.BYTES + PUBLIC_KEY_LENGTH];
+    final byte[] data = new byte[
+        NATIVE_DISCRIMINATOR_LENGTH
+            + PUBLIC_KEY_LENGTH
+            + (Long.BYTES + seedBytes.length)
+            + Long.BYTES
+            + PUBLIC_KEY_LENGTH
+        ];
     int i = Instructions.AllocateWithSeed.write(data);
     i += baseAccount.write(data, i);
-    i += writeBytes(seedBytes, data, i);
+    i += SerdeUtil.writeString(seedBytes, data, i);
     putInt64LE(data, i, space);
     i += Long.BYTES;
     programOwner.write(data, i);
 
     return createInstruction(invokedProgram, keys, data);
+  }
+
+  public record AllocateWithSeed(byte[] discriminator,
+                                 PublicKey baseAccount,
+                                 byte[] seed,
+                                 long space,
+                                 PublicKey programOwner) {
+
+    public static AllocateWithSeed read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static AllocateWithSeed read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
+      final var baseAccount = PublicKey.readPubKey(data, i);
+      i += PUBLIC_KEY_LENGTH;
+      final var seed = SerdeUtil.readString(data, i);
+      i += Long.BYTES + seed.length;
+      final long space = ByteUtil.getInt64LE(data, i);
+      i += Long.BYTES;
+      final var programOwner = PublicKey.readPubKey(data, i);
+
+      return new AllocateWithSeed(discriminator, baseAccount, seed, space, programOwner);
+    }
   }
 
   public static Instruction assign(final AccountMeta invokedProgram,
@@ -257,9 +305,24 @@ public final class SystemProgram {
 
     final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + PUBLIC_KEY_LENGTH];
     Instructions.Assign.write(data);
-    programOwner.write(data, Integer.BYTES);
+    programOwner.write(data, NATIVE_DISCRIMINATOR_LENGTH);
 
     return createInstruction(invokedProgram, keys, data);
+  }
+
+  public record Assign(byte[] discriminator, PublicKey programOwner) {
+
+    public static Assign read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Assign read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      return new Assign(discriminator, PublicKey.readPubKey(data, offset + discriminator.length));
+    }
   }
 
   public static Instruction assignWithSeed(final AccountMeta invokedProgram,
@@ -272,10 +335,34 @@ public final class SystemProgram {
     final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + PUBLIC_KEY_LENGTH + (Long.BYTES + seedBytes.length) + PUBLIC_KEY_LENGTH];
     int i = Instructions.AssignWithSeed.write(data);
     i += baseAccount.write(data, i);
-    i += writeBytes(seedBytes, data, i);
+    i += SerdeUtil.writeString(seedBytes, data, i);
     programOwner.write(data, i);
 
     return createInstruction(invokedProgram, keys, data);
+  }
+
+  public record AssignWithSeed(byte[] discriminator,
+                               PublicKey baseAccount,
+                               byte[] seed,
+                               PublicKey programOwner) {
+
+    public static AssignWithSeed read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static AssignWithSeed read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
+      final var baseAccount = PublicKey.readPubKey(data, i);
+      i += PUBLIC_KEY_LENGTH;
+      final var seed = SerdeUtil.readString(data, i);
+      i += Long.BYTES + seed.length;
+      final var programOwner = PublicKey.readPubKey(data, i);
+      return new AssignWithSeed(discriminator, baseAccount, seed, programOwner);
+    }
   }
 
   public static Instruction createAccount(final AccountMeta invokedProgram,
@@ -297,6 +384,30 @@ public final class SystemProgram {
     return createInstruction(invokedProgram, keys, data);
   }
 
+  public record CreateAccount(byte[] discriminator,
+                              long lamports,
+                              long space,
+                              PublicKey programOwner) {
+
+    public static CreateAccount read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static CreateAccount read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
+      final long lamports = ByteUtil.getInt64LE(data, i);
+      i += Long.BYTES;
+      final long space = ByteUtil.getInt64LE(data, i);
+      i += Long.BYTES;
+      final var programOwner = PublicKey.readPubKey(data, i);
+      return new CreateAccount(discriminator, lamports, space, programOwner);
+    }
+  }
+
   public static Instruction createAccountWithSeed(final AccountMeta invokedProgram,
                                                   final PublicKey fromPublicKey,
                                                   final AccountWithSeed accountWithSeed,
@@ -311,11 +422,18 @@ public final class SystemProgram {
         ? List.of(fromSigner, accountMeta)
         : List.of(fromSigner, accountMeta, createReadOnlySigner(baseAccount));
 
-    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + PUBLIC_KEY_LENGTH + (Long.BYTES + seedBytes.length) + Long.BYTES + Long.BYTES + PUBLIC_KEY_LENGTH];
+    final byte[] data = new byte[
+        NATIVE_DISCRIMINATOR_LENGTH
+            + PUBLIC_KEY_LENGTH
+            + (Long.BYTES + seedBytes.length)
+            + Long.BYTES
+            + Long.BYTES
+            + PUBLIC_KEY_LENGTH
+        ];
     int i = Instructions.CreateAccountWithSeed.write(data);
     baseAccount.write(data, i);
     i += PUBLIC_KEY_LENGTH;
-    i += writeBytes(seedBytes, data, i);
+    i += SerdeUtil.writeString(seedBytes, data, i);
     putInt64LE(data, i, lamports);
     i += Long.BYTES;
     putInt64LE(data, i, space);
@@ -323,6 +441,36 @@ public final class SystemProgram {
     programOwner.write(data, i);
 
     return createInstruction(invokedProgram, keys, data);
+  }
+
+  public record CreateAccountWithSeed(byte[] discriminator,
+                                      PublicKey baseAccount,
+                                      byte[] seed,
+                                      long lamports,
+                                      long space,
+                                      PublicKey programOwner) {
+
+    public static CreateAccountWithSeed read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static CreateAccountWithSeed read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
+      final var baseAccount = PublicKey.readPubKey(data, i);
+      i += PUBLIC_KEY_LENGTH;
+      final var seed = SerdeUtil.readString(data, i);
+      i += Long.BYTES + seed.length;
+      final long lamports = ByteUtil.getInt64LE(data, i);
+      i += Long.BYTES;
+      final long space = ByteUtil.getInt64LE(data, i);
+      i += Long.BYTES;
+      final var programOwner = PublicKey.readPubKey(data, i);
+      return new CreateAccountWithSeed(discriminator, baseAccount, seed, lamports, space, programOwner);
+    }
   }
 
   public static Instruction transfer(final AccountMeta invokedProgram,
@@ -336,9 +484,24 @@ public final class SystemProgram {
 
     final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
     Instructions.Transfer.write(data);
-    putInt64LE(data, 4, lamports);
+    putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
 
     return createInstruction(invokedProgram, keys, data);
+  }
+
+  public record Transfer(byte[] discriminator, long lamports) {
+
+    public static Transfer read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Transfer read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      return new Transfer(discriminator, ByteUtil.getInt64LE(data, offset + discriminator.length));
+    }
   }
 
   public static Instruction transferWithSeed(final AccountMeta invokedProgram,
@@ -357,10 +520,34 @@ public final class SystemProgram {
     int i = Instructions.TransferWithSeed.write(data);
     putInt64LE(data, i, lamports);
     i += Long.BYTES;
-    i += writeBytes(seedBytes, data, i);
+    i += SerdeUtil.writeString(seedBytes, data, i);
     programOwner.write(data, i);
 
     return createInstruction(invokedProgram, keys, data);
+  }
+
+  public record TransferWithSeed(byte[] discriminator,
+                                 long lamports,
+                                 byte[] seed,
+                                 PublicKey programOwner) {
+
+    public static TransferWithSeed read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static TransferWithSeed read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
+      final long lamports = ByteUtil.getInt64LE(data, i);
+      i += Long.BYTES;
+      final var seed = SerdeUtil.readString(data, i);
+      i += Long.BYTES + seed.length;
+      final var programOwner = PublicKey.readPubKey(data, i);
+      return new TransferWithSeed(discriminator, lamports, seed, programOwner);
+    }
   }
 
   public static Instruction advanceNonceAccount(final SolanaAccounts solanaAccounts,
@@ -393,9 +580,24 @@ public final class SystemProgram {
 
     final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
     Instructions.WithdrawNonceAccount.write(data);
-    putInt64LE(data, 4, lamports);
+    putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
 
     return createInstruction(solanaAccounts.invokedSystemProgram(), keys, data);
+  }
+
+  public record WithdrawNonceAccount(byte[] discriminator, long lamports) {
+
+    public static WithdrawNonceAccount read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static WithdrawNonceAccount read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      return new WithdrawNonceAccount(discriminator, ByteUtil.getInt64LE(data, offset + discriminator.length));
+    }
   }
 
   public static Instruction initializeNonceAccount(final SolanaAccounts solanaAccounts,
@@ -414,6 +616,21 @@ public final class SystemProgram {
     return createInstruction(solanaAccounts.invokedSystemProgram(), keys, data);
   }
 
+  public record InitializeNonceAccount(byte[] discriminator, PublicKey nonceAuthority) {
+
+    public static InitializeNonceAccount read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static InitializeNonceAccount read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      return new InitializeNonceAccount(discriminator, PublicKey.readPubKey(data, offset + discriminator.length));
+    }
+  }
+
   public static Instruction authorizeNonceAccount(final AccountMeta invokedProgram,
                                                   final PublicKey nonceAccount,
                                                   final PublicKey currentNonceAuthority,
@@ -428,6 +645,21 @@ public final class SystemProgram {
     newNonceAuthority.write(data, NATIVE_DISCRIMINATOR_LENGTH);
 
     return createInstruction(invokedProgram, keys, data);
+  }
+
+  public record AuthorizeNonceAccount(byte[] discriminator, PublicKey newNonceAuthority) {
+
+    public static AuthorizeNonceAccount read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static AuthorizeNonceAccount read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      return new AuthorizeNonceAccount(discriminator, PublicKey.readPubKey(data, offset + discriminator.length));
+    }
   }
 
   public static Instruction authorizeNonceAccount(final SolanaAccounts solanaAccounts,

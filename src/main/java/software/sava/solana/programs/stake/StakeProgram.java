@@ -8,6 +8,7 @@ import software.sava.core.borsh.Borsh;
 import software.sava.core.encoding.ByteUtil;
 import software.sava.core.programs.Discriminator;
 import software.sava.core.tx.Instruction;
+import software.sava.solana.programs.serde.SerdeUtil;
 
 import java.time.Instant;
 import java.util.List;
@@ -302,122 +303,6 @@ public final class StakeProgram {
     }
   }
 
-  private static byte[] readDiscriminator(final byte[] data, final int offset) {
-    final byte[] discriminator = new byte[NATIVE_DISCRIMINATOR_LENGTH];
-    System.arraycopy(data, offset, discriminator, 0, NATIVE_DISCRIMINATOR_LENGTH);
-    return discriminator;
-  }
-
-  public static Instruction withdraw(final SolanaAccounts solanaAccounts,
-                                     final List<AccountMeta> keys,
-                                     final long lamports) {
-    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
-    Instructions.Withdraw.write(data);
-    ByteUtil.putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
-
-    return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
-  }
-
-  public record Withdraw(byte[] discriminator, long lamports) {
-
-    public static Withdraw read(final Instruction instruction) {
-      return read(instruction.data(), instruction.offset());
-    }
-
-    public static Withdraw read(final byte[] data, final int offset) {
-      if (data == null || data.length == 0) {
-        return null;
-      }
-      final var discriminator = readDiscriminator(data, offset);
-      final var lamports = getInt64LE(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
-      return new Withdraw(discriminator, lamports);
-    }
-  }
-
-  public static Instruction withdraw(final SolanaAccounts solanaAccounts,
-                                     final PublicKey stakeAccount,
-                                     final PublicKey recipient,
-                                     final PublicKey withdrawAuthority,
-                                     final long lamports) {
-    final var keys = List.of(
-        createWrite(stakeAccount),
-        createWrite(recipient),
-        solanaAccounts.readClockSysVar(),
-        solanaAccounts.readStakeHistorySysVar(),
-        createReadOnlySigner(withdrawAuthority)
-    );
-    return withdraw(solanaAccounts, keys, lamports);
-  }
-
-  public static Instruction withdraw(final SolanaAccounts solanaAccounts,
-                                     final PublicKey stakeAccount,
-                                     final PublicKey recipient,
-                                     final PublicKey withdrawAuthority,
-                                     final PublicKey lockupAuthority,
-                                     final long lamports) {
-    if (lockupAuthority == null) {
-      return withdraw(solanaAccounts, stakeAccount, recipient, withdrawAuthority, lamports);
-    }
-    final var keys = List.of(
-        createWrite(stakeAccount),
-        createWrite(recipient),
-        solanaAccounts.readClockSysVar(),
-        solanaAccounts.readStakeHistorySysVar(),
-        createReadOnlySigner(withdrawAuthority),
-        createReadOnlySigner(lockupAuthority)
-    );
-    return withdraw(solanaAccounts, keys, lamports);
-  }
-
-  public static Instruction split(final SolanaAccounts solanaAccounts,
-                                  final PublicKey splitStakeAccount,
-                                  final PublicKey unInitializedStakeAccount,
-                                  final PublicKey stakeAuthority,
-                                  final long lamports) {
-    final var keys = List.of(
-        createWrite(splitStakeAccount),
-        createWrite(unInitializedStakeAccount),
-        createReadOnlySigner(stakeAuthority)
-    );
-
-    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
-    Instructions.Split.write(data);
-    ByteUtil.putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
-
-    return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
-  }
-
-  public record Split(byte[] discriminator, long lamports) {
-
-    public static Split read(final Instruction instruction) {
-      return read(instruction.data(), instruction.offset());
-    }
-
-    public static Split read(final byte[] data, final int offset) {
-      if (data == null || data.length == 0) {
-        return null;
-      }
-      final var discriminator = readDiscriminator(data, offset);
-      final var lamports = getInt64LE(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
-      return new Split(discriminator, lamports);
-    }
-  }
-
-  public static Instruction merge(final SolanaAccounts solanaAccounts,
-                                  final PublicKey destinationStakeAccount,
-                                  final PublicKey srcStakeAccount,
-                                  final PublicKey stakeAuthority) {
-    final var keys = List.of(
-        createWrite(destinationStakeAccount),
-        createWrite(srcStakeAccount),
-        solanaAccounts.readClockSysVar(),
-        solanaAccounts.readStakeHistorySysVar(),
-        createReadOnlySigner(stakeAuthority)
-    );
-
-    return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, Instructions.Merge.data);
-  }
-
   public static Instruction initialize(final SolanaAccounts solanaAccounts,
                                        final PublicKey unInitializedStakeAccount,
                                        final PublicKey staker,
@@ -437,18 +322,14 @@ public final class StakeProgram {
 
     final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + PUBLIC_KEY_LENGTH + PUBLIC_KEY_LENGTH + LockUp.BYTES];
     int i = Instructions.Initialize.write(data);
-    staker.write(data, i);
-    i += PUBLIC_KEY_LENGTH;
+    i += staker.write(data, i);
     i += withdrawer.write(data, i);
     lockUp.write(data, i);
 
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
 
-  public record Initialize(byte[] discriminator,
-                           PublicKey staker,
-                           PublicKey withdrawer,
-                           LockUp lockUp) {
+  public record Initialize(byte[] discriminator, PublicKey staker, PublicKey withdrawer, LockUp lockUp) {
 
     public static Initialize read(final Instruction instruction) {
       return read(instruction.data(), instruction.offset());
@@ -458,8 +339,8 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
       final var staker = PublicKey.readPubKey(data, i);
       i += PUBLIC_KEY_LENGTH;
       final var withdrawer = PublicKey.readPubKey(data, i);
@@ -491,6 +372,7 @@ public final class StakeProgram {
     Instructions.Authorize.write(data);
     newAuthority.write(data, NATIVE_DISCRIMINATOR_LENGTH);
     stakeAuthorize.write(data, NATIVE_DISCRIMINATOR_LENGTH + PUBLIC_KEY_LENGTH);
+
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
 
@@ -504,8 +386,8 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
       final var newAuthority = PublicKey.readPubKey(data, i);
       i += PUBLIC_KEY_LENGTH;
       final var stakeAuthorize = StakeAuthorize.read(data, i);
@@ -566,8 +448,8 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      final var stakeAuthorize = StakeAuthorize.read(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      final var stakeAuthorize = StakeAuthorize.read(data, offset + discriminator.length);
       return new AuthorizeChecked(discriminator, stakeAuthorize);
     }
   }
@@ -619,13 +501,13 @@ public final class StakeProgram {
         NATIVE_DISCRIMINATOR_LENGTH
             + PUBLIC_KEY_LENGTH
             + stakeAuthorize.l()
-            + Borsh.lenVector(authoritySeedBytes)
+            + (Long.BYTES + authoritySeedBytes.length)
             + PUBLIC_KEY_LENGTH
         ];
     int i = Instructions.AuthorizeWithSeed.write(data);
     i += newAuthorizedPublicKey.write(data, i);
     i += stakeAuthorize.write(data, i);
-    i += Borsh.writeVector(authoritySeedBytes, data, i);
+    i += SerdeUtil.writeString(authoritySeedBytes, data, i);
     authorityOwner.write(data, i);
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
@@ -644,14 +526,14 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
       final var newAuthorizedPublicKey = PublicKey.readPubKey(data, i);
       i += PUBLIC_KEY_LENGTH;
       final var stakeAuthorize = StakeAuthorize.read(data, i);
       i += stakeAuthorize.l();
-      final var seed = Borsh.readbyteVector(data, i);
-      i += Integer.BYTES + seed.length;
+      final var seed = SerdeUtil.readString(data, i);
+      i += Long.BYTES + seed.length;
       final var authorityOwner = PublicKey.readPubKey(data, i);
 
       return new AuthorizeWithSeed(discriminator, newAuthorizedPublicKey, stakeAuthorize, seed, authorityOwner);
@@ -700,14 +582,16 @@ public final class StakeProgram {
                                                      final AccountWithSeed authoritySeed,
                                                      final PublicKey authorityOwner) {
     final byte[] authoritySeedBytes = authoritySeed.asciiSeed();
-    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH
-        + stakeAuthorize.l()
-        + Borsh.lenVector(authoritySeedBytes)
-        + PUBLIC_KEY_LENGTH];
+    final byte[] data = new byte[
+        NATIVE_DISCRIMINATOR_LENGTH
+            + stakeAuthorize.l()
+            + (Long.BYTES + authoritySeedBytes.length)
+            + PUBLIC_KEY_LENGTH
+        ];
 
     int i = Instructions.AuthorizeCheckedWithSeed.write(data);
     i += stakeAuthorize.write(data, i);
-    i += Borsh.writeVector(authoritySeedBytes, data, i);
+    i += SerdeUtil.writeString(authoritySeedBytes, data, i);
     authorityOwner.write(data, i);
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
@@ -725,12 +609,12 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
       final var stakeAuthorize = StakeAuthorize.read(data, i);
       i += stakeAuthorize.l();
-      final var seed = Borsh.readbyteVector(data, i);
-      i += Integer.BYTES + seed.length;
+      final var seed = SerdeUtil.readString(data, i);
+      i += Long.BYTES + seed.length;
       final var authorityOwner = PublicKey.readPubKey(data, i);
 
       return new AuthorizeCheckedWithSeed(discriminator, stakeAuthorize, seed, authorityOwner);
@@ -775,6 +659,135 @@ public final class StakeProgram {
     return authorizeCheckedWithSeed(solanaAccounts, keys, stakeAuthorize, baseKeyOrWithdrawAuthority, authorityOwner);
   }
 
+  public static Instruction delegateStake(final SolanaAccounts solanaAccounts,
+                                          final PublicKey initializedStakeAccount,
+                                          final PublicKey validatorVoteAccount,
+                                          final PublicKey stakeAuthority) {
+    final var keys = List.of(
+        createWrite(initializedStakeAccount),
+        createRead(validatorVoteAccount),
+        solanaAccounts.readClockSysVar(),
+        solanaAccounts.readStakeHistorySysVar(),
+        solanaAccounts.readStakeConfig(),
+        createReadOnlySigner(stakeAuthority)
+    );
+    return Instruction.createInstruction(
+        solanaAccounts.invokedStakeProgram(),
+        keys,
+        Instructions.DelegateStake.data
+    );
+  }
+
+  public static Instruction split(final SolanaAccounts solanaAccounts,
+                                  final PublicKey splitStakeAccount,
+                                  final PublicKey unInitializedStakeAccount,
+                                  final PublicKey stakeAuthority,
+                                  final long lamports) {
+    final var keys = List.of(
+        createWrite(splitStakeAccount),
+        createWrite(unInitializedStakeAccount),
+        createReadOnlySigner(stakeAuthority)
+    );
+
+    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
+    Instructions.Split.write(data);
+    ByteUtil.putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
+
+    return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public record Split(byte[] discriminator, long lamports) {
+
+    public static Split read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Split read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      final var lamports = getInt64LE(data, offset + discriminator.length);
+      return new Split(discriminator, lamports);
+    }
+  }
+
+  public static Instruction withdraw(final SolanaAccounts solanaAccounts,
+                                     final List<AccountMeta> keys,
+                                     final long lamports) {
+    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH + Long.BYTES];
+    Instructions.Withdraw.write(data);
+    ByteUtil.putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
+
+    return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public record Withdraw(byte[] discriminator, long lamports) {
+
+    public static Withdraw read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Withdraw read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      final var lamports = getInt64LE(data, offset + discriminator.length);
+      return new Withdraw(discriminator, lamports);
+    }
+  }
+
+  public static Instruction withdraw(final SolanaAccounts solanaAccounts,
+                                     final PublicKey stakeAccount,
+                                     final PublicKey recipient,
+                                     final PublicKey withdrawAuthority,
+                                     final long lamports) {
+    final var keys = List.of(
+        createWrite(stakeAccount),
+        createWrite(recipient),
+        solanaAccounts.readClockSysVar(),
+        solanaAccounts.readStakeHistorySysVar(),
+        createReadOnlySigner(withdrawAuthority)
+    );
+    return withdraw(solanaAccounts, keys, lamports);
+  }
+
+  public static Instruction withdraw(final SolanaAccounts solanaAccounts,
+                                     final PublicKey stakeAccount,
+                                     final PublicKey recipient,
+                                     final PublicKey withdrawAuthority,
+                                     final PublicKey lockupAuthority,
+                                     final long lamports) {
+    if (lockupAuthority == null) {
+      return withdraw(solanaAccounts, stakeAccount, recipient, withdrawAuthority, lamports);
+    }
+    final var keys = List.of(
+        createWrite(stakeAccount),
+        createWrite(recipient),
+        solanaAccounts.readClockSysVar(),
+        solanaAccounts.readStakeHistorySysVar(),
+        createReadOnlySigner(withdrawAuthority),
+        createReadOnlySigner(lockupAuthority)
+    );
+    return withdraw(solanaAccounts, keys, lamports);
+  }
+
+  public static Instruction deactivate(final SolanaAccounts solanaAccounts,
+                                       final PublicKey delegatedStakeAccount,
+                                       final PublicKey stakeAuthority) {
+    final var keys = List.of(
+        createWrite(delegatedStakeAccount),
+        solanaAccounts.readClockSysVar(),
+        createReadOnlySigner(stakeAuthority)
+    );
+    return Instruction.createInstruction(
+        solanaAccounts.invokedStakeProgram(),
+        keys,
+        Instructions.Deactivate.data
+    );
+  }
+
   public static Instruction setLockup(final SolanaAccounts solanaAccounts,
                                       final PublicKey initializedStakeAccount,
                                       final PublicKey lockupOrWithdrawAuthority,
@@ -786,13 +799,15 @@ public final class StakeProgram {
         createReadOnlySigner(lockupOrWithdrawAuthority)
     );
 
-    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH
-        + (timestamp == null ? 1 : 1 + Long.BYTES)
-        + (epoch.isEmpty() ? 1 : 1 + Long.BYTES)
-        + (custodian == null ? 1 : 1 + PUBLIC_KEY_LENGTH)];
+    final byte[] data = new byte[
+        NATIVE_DISCRIMINATOR_LENGTH
+            + (timestamp == null ? 1 : 1 + Long.BYTES)
+            + (epoch.isEmpty() ? 1 : 1 + Long.BYTES)
+            + (custodian == null ? 1 : 1 + PUBLIC_KEY_LENGTH)
+        ];
 
     int i = Instructions.SetLockup.write(data);
-    i += Borsh.writeOptional(timestamp, data, i);
+    i += SerdeUtil.writeOptionalEpochSeconds(timestamp, data, i);
     i += Borsh.writeOptional(epoch, data, i);
     Borsh.writeOptional(custodian, data, i);
 
@@ -809,11 +824,11 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
       final Instant timestamp;
       if (data[i++] == 1) {
-        timestamp = Instant.ofEpochMilli(getInt64LE(data, i + 1));
+        timestamp = Instant.ofEpochSecond(getInt64LE(data, i));
         i += Long.BYTES;
       } else {
         timestamp = null;
@@ -839,12 +854,14 @@ public final class StakeProgram {
                                              final List<AccountMeta> keys,
                                              final Instant timestamp,
                                              final OptionalLong epoch) {
-    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH
-        + (timestamp == null ? 1 : 1 + Long.BYTES)
-        + (epoch.isEmpty() ? 1 : 1 + Long.BYTES)];
+    final byte[] data = new byte[
+        NATIVE_DISCRIMINATOR_LENGTH
+            + (timestamp == null ? 1 : 1 + Long.BYTES)
+            + (epoch.isEmpty() ? 1 : 1 + Long.BYTES)
+        ];
 
     int i = Instructions.SetLockupChecked.write(data);
-    i += Borsh.writeOptional(timestamp, data, i);
+    i += SerdeUtil.writeOptionalEpochSeconds(timestamp, data, i);
     Borsh.writeOptional(epoch, data, i);
 
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
@@ -860,11 +877,11 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      int i = offset + discriminator.length;
       final Instant timestamp;
       if (data[i++] == 1) {
-        timestamp = Instant.ofEpochMilli(getInt64LE(data, i));
+        timestamp = Instant.ofEpochSecond(getInt64LE(data, i));
         i += Long.BYTES;
       } else {
         timestamp = null;
@@ -911,6 +928,21 @@ public final class StakeProgram {
     return setLockupChecked(solanaAccounts, keys, timestamp, epoch);
   }
 
+  public static Instruction merge(final SolanaAccounts solanaAccounts,
+                                  final PublicKey destinationStakeAccount,
+                                  final PublicKey srcStakeAccount,
+                                  final PublicKey stakeAuthority) {
+    final var keys = List.of(
+        createWrite(destinationStakeAccount),
+        createWrite(srcStakeAccount),
+        solanaAccounts.readClockSysVar(),
+        solanaAccounts.readStakeHistorySysVar(),
+        createReadOnlySigner(stakeAuthority)
+    );
+
+    return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, Instructions.Merge.data);
+  }
+
   public static Instruction deactivateDelinquent(final SolanaAccounts solanaAccounts,
                                                  final PublicKey delegatedStakeAccount,
                                                  final PublicKey delinquentVoteAccount,
@@ -924,40 +956,6 @@ public final class StakeProgram {
         solanaAccounts.invokedStakeProgram(),
         keys,
         Instructions.DeactivateDelinquent.data
-    );
-  }
-
-  public static Instruction deactivate(final SolanaAccounts solanaAccounts,
-                                       final PublicKey delegatedStakeAccount,
-                                       final PublicKey stakeAuthority) {
-    final var keys = List.of(
-        createWrite(delegatedStakeAccount),
-        solanaAccounts.readClockSysVar(),
-        createReadOnlySigner(stakeAuthority)
-    );
-    return Instruction.createInstruction(
-        solanaAccounts.invokedStakeProgram(),
-        keys,
-        Instructions.Deactivate.data
-    );
-  }
-
-  public static Instruction delegateStake(final SolanaAccounts solanaAccounts,
-                                          final PublicKey initializedStakeAccount,
-                                          final PublicKey validatorVoteAccount,
-                                          final PublicKey stakeAuthority) {
-    final var keys = List.of(
-        createWrite(initializedStakeAccount),
-        createRead(validatorVoteAccount),
-        solanaAccounts.readClockSysVar(),
-        solanaAccounts.readStakeHistorySysVar(),
-        solanaAccounts.readStakeConfig(),
-        createReadOnlySigner(stakeAuthority)
-    );
-    return Instruction.createInstruction(
-        solanaAccounts.invokedStakeProgram(),
-        keys,
-        Instructions.DelegateStake.data
     );
   }
 
@@ -1008,8 +1006,8 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      final var lamports = getInt64LE(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      final var lamports = getInt64LE(data, offset + discriminator.length);
       return new MoveStake(discriminator, lamports);
     }
   }
@@ -1042,8 +1040,8 @@ public final class StakeProgram {
       if (data == null || data.length == 0) {
         return null;
       }
-      final var discriminator = readDiscriminator(data, offset);
-      final var lamports = getInt64LE(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
+      final var discriminator = SerdeUtil.readDiscriminator(data, offset);
+      final var lamports = getInt64LE(data, offset + discriminator.length);
       return new MoveLamports(discriminator, lamports);
     }
   }
