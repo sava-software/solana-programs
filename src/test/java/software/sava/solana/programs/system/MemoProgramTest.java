@@ -20,7 +20,13 @@ final class MemoProgramTest {
     final var recentBlockHash = "6FE9y44TsLodyVbN243QXATAWhgcj6xVfSLzEEzDbaPS";
     final var feePayer = PublicKey.fromBase58Encoded("savaKKJmmwDsHHhxV6G293hrRM4f1p6jv6qUF441QD3");
 
-    final var memoIx = MemoProgram.createMemo(SolanaAccounts.MAIN_NET, List.of(feePayer), "Sava".getBytes());
+    final var solanaAccounts = SolanaAccounts.MAIN_NET;
+    final var memoIx = MemoProgram.createMemo(solanaAccounts, List.of(feePayer), "Sava".getBytes());
+    assertEquals(solanaAccounts.invokedMemoProgramV2(), memoIx.programId());
+    final var accounts = memoIx.accounts();
+    assertEquals(1, accounts.size());
+    assertEquals(feePayer, accounts.getFirst().publicKey());
+    assertEquals("Sava", new String(memoIx.data()));
 
     final var transaction = Transaction.createTx(feePayer, memoIx);
 

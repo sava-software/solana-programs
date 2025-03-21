@@ -15,6 +15,7 @@ import java.util.OptionalLong;
 
 import static software.sava.core.accounts.PublicKey.PUBLIC_KEY_LENGTH;
 import static software.sava.core.accounts.meta.AccountMeta.*;
+import static software.sava.core.encoding.ByteUtil.getInt64LE;
 import static software.sava.core.programs.Discriminator.NATIVE_DISCRIMINATOR_LENGTH;
 import static software.sava.core.programs.Discriminator.serializeDiscriminator;
 
@@ -301,6 +302,12 @@ public final class StakeProgram {
     }
   }
 
+  private static byte[] readDiscriminator(final byte[] data, final int offset) {
+    final byte[] discriminator = new byte[NATIVE_DISCRIMINATOR_LENGTH];
+    System.arraycopy(data, offset, discriminator, 0, NATIVE_DISCRIMINATOR_LENGTH);
+    return discriminator;
+  }
+
   public static Instruction withdraw(final SolanaAccounts solanaAccounts,
                                      final List<AccountMeta> keys,
                                      final long lamports) {
@@ -309,6 +316,22 @@ public final class StakeProgram {
     ByteUtil.putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
 
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public record Withdraw(byte[] discriminator, long lamports) {
+
+    public static Withdraw read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Withdraw read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      final var lamports = getInt64LE(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
+      return new Withdraw(discriminator, lamports);
+    }
   }
 
   public static Instruction withdraw(final SolanaAccounts solanaAccounts,
@@ -364,6 +387,22 @@ public final class StakeProgram {
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
 
+  public record Split(byte[] discriminator, long lamports) {
+
+    public static Split read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Split read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      final var lamports = getInt64LE(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
+      return new Split(discriminator, lamports);
+    }
+  }
+
   public static Instruction merge(final SolanaAccounts solanaAccounts,
                                   final PublicKey destinationStakeAccount,
                                   final PublicKey srcStakeAccount,
@@ -406,6 +445,30 @@ public final class StakeProgram {
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
 
+  public record Initialize(byte[] discriminator,
+                           PublicKey staker,
+                           PublicKey withdrawer,
+                           LockUp lockUp) {
+
+    public static Initialize read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Initialize read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var staker = PublicKey.readPubKey(data, i);
+      i += PUBLIC_KEY_LENGTH;
+      final var withdrawer = PublicKey.readPubKey(data, i);
+      i += PUBLIC_KEY_LENGTH;
+      final var lockUp = LockUp.read(data, i);
+      return new Initialize(discriminator, staker, withdrawer, lockUp);
+    }
+  }
+
   public static Instruction initializeChecked(final SolanaAccounts solanaAccounts,
                                               final PublicKey unInitializedStakeAccount,
                                               final PublicKey staker,
@@ -429,6 +492,25 @@ public final class StakeProgram {
     newAuthority.write(data, NATIVE_DISCRIMINATOR_LENGTH);
     stakeAuthorize.write(data, NATIVE_DISCRIMINATOR_LENGTH + PUBLIC_KEY_LENGTH);
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public record Authorize(byte[] discriminator, PublicKey newAuthority, StakeAuthorize stakeAuthorize) {
+
+    public static Authorize read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static Authorize read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var newAuthority = PublicKey.readPubKey(data, i);
+      i += PUBLIC_KEY_LENGTH;
+      final var stakeAuthorize = StakeAuthorize.read(data, i);
+      return new Authorize(discriminator, newAuthority, stakeAuthorize);
+    }
   }
 
   public static Instruction authorize(final SolanaAccounts solanaAccounts,
@@ -474,6 +556,22 @@ public final class StakeProgram {
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
 
+  public record AuthorizeChecked(byte[] discriminator, StakeAuthorize stakeAuthorize) {
+
+    public static AuthorizeChecked read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static AuthorizeChecked read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      final var stakeAuthorize = StakeAuthorize.read(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
+      return new AuthorizeChecked(discriminator, stakeAuthorize);
+    }
+  }
+
   public static Instruction authorizeChecked(final SolanaAccounts solanaAccounts,
                                              final PublicKey stakeAccount,
                                              final PublicKey stakeOrWithdrawAuthority,
@@ -517,17 +615,47 @@ public final class StakeProgram {
                                                final AccountWithSeed authoritySeed,
                                                final PublicKey authorityOwner) {
     final byte[] authoritySeedBytes = authoritySeed.asciiSeed();
-    final byte[] data = new byte[NATIVE_DISCRIMINATOR_LENGTH
-        + PUBLIC_KEY_LENGTH
-        + stakeAuthorize.l()
-        + Borsh.lenVector(authoritySeedBytes)
-        + PUBLIC_KEY_LENGTH];
+    final byte[] data = new byte[
+        NATIVE_DISCRIMINATOR_LENGTH
+            + PUBLIC_KEY_LENGTH
+            + stakeAuthorize.l()
+            + Borsh.lenVector(authoritySeedBytes)
+            + PUBLIC_KEY_LENGTH
+        ];
     int i = Instructions.AuthorizeWithSeed.write(data);
     i += newAuthorizedPublicKey.write(data, i);
     i += stakeAuthorize.write(data, i);
     i += Borsh.writeVector(authoritySeedBytes, data, i);
     authorityOwner.write(data, i);
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public record AuthorizeWithSeed(byte[] discriminator,
+                                  PublicKey newAuthorizedPublicKey,
+                                  StakeAuthorize stakeAuthorize,
+                                  byte[] seed,
+                                  PublicKey authorityOwner) {
+
+    public static AuthorizeWithSeed read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static AuthorizeWithSeed read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var newAuthorizedPublicKey = PublicKey.readPubKey(data, i);
+      i += PUBLIC_KEY_LENGTH;
+      final var stakeAuthorize = StakeAuthorize.read(data, i);
+      i += stakeAuthorize.l();
+      final var seed = Borsh.readbyteVector(data, i);
+      i += Integer.BYTES + seed.length;
+      final var authorityOwner = PublicKey.readPubKey(data, i);
+
+      return new AuthorizeWithSeed(discriminator, newAuthorizedPublicKey, stakeAuthorize, seed, authorityOwner);
+    }
   }
 
   public static Instruction authorizeWithSeed(final SolanaAccounts solanaAccounts,
@@ -582,6 +710,31 @@ public final class StakeProgram {
     i += Borsh.writeVector(authoritySeedBytes, data, i);
     authorityOwner.write(data, i);
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public record AuthorizeCheckedWithSeed(byte[] discriminator,
+                                         StakeAuthorize stakeAuthorize,
+                                         byte[] seed,
+                                         PublicKey authorityOwner) {
+
+    public static AuthorizeCheckedWithSeed read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static AuthorizeCheckedWithSeed read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final var stakeAuthorize = StakeAuthorize.read(data, i);
+      i += stakeAuthorize.l();
+      final var seed = Borsh.readbyteVector(data, i);
+      i += Integer.BYTES + seed.length;
+      final var authorityOwner = PublicKey.readPubKey(data, i);
+
+      return new AuthorizeCheckedWithSeed(discriminator, stakeAuthorize, seed, authorityOwner);
+    }
   }
 
   public static Instruction authorizeCheckedWithSeed(final SolanaAccounts solanaAccounts,
@@ -646,6 +799,42 @@ public final class StakeProgram {
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
 
+  public record SetLockup(byte[] discriminator, Instant timestamp, OptionalLong epoch, PublicKey custodian) {
+
+    public static SetLockup read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static SetLockup read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final Instant timestamp;
+      if (data[i++] == 1) {
+        timestamp = Instant.ofEpochMilli(getInt64LE(data, i + 1));
+        i += Long.BYTES;
+      } else {
+        timestamp = null;
+      }
+      final OptionalLong epoch;
+      if (data[i++] == 1) {
+        epoch = OptionalLong.of(getInt64LE(data, i));
+        i += Long.BYTES;
+      } else {
+        epoch = OptionalLong.empty();
+      }
+      final PublicKey custodian;
+      if (data[i++] == 1) {
+        custodian = PublicKey.readPubKey(data, i);
+      } else {
+        custodian = null;
+      }
+      return new SetLockup(discriminator, timestamp, epoch, custodian);
+    }
+  }
+
   public static Instruction setLockupChecked(final SolanaAccounts solanaAccounts,
                                              final List<AccountMeta> keys,
                                              final Instant timestamp,
@@ -659,6 +848,35 @@ public final class StakeProgram {
     Borsh.writeOptional(epoch, data, i);
 
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public record SetLockupChecked(byte[] discriminator, Instant timestamp, OptionalLong epoch) {
+
+    public static SetLockupChecked read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static SetLockupChecked read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      int i = offset + NATIVE_DISCRIMINATOR_LENGTH;
+      final Instant timestamp;
+      if (data[i++] == 1) {
+        timestamp = Instant.ofEpochMilli(getInt64LE(data, i));
+        i += Long.BYTES;
+      } else {
+        timestamp = null;
+      }
+      final OptionalLong epoch;
+      if (data[i++] == 1) {
+        epoch = OptionalLong.of(getInt64LE(data, i));
+      } else {
+        epoch = OptionalLong.empty();
+      }
+      return new SetLockupChecked(discriminator, timestamp, epoch);
+    }
   }
 
   public static Instruction setLockupChecked(final SolanaAccounts solanaAccounts,
@@ -780,6 +998,22 @@ public final class StakeProgram {
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
   }
 
+  public record MoveStake(byte[] discriminator, long lamports) {
+
+    public static MoveStake read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static MoveStake read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      final var lamports = getInt64LE(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
+      return new MoveStake(discriminator, lamports);
+    }
+  }
+
   public static Instruction moveLamports(final SolanaAccounts solanaAccounts,
                                          final PublicKey sourceStakeAccount,
                                          final PublicKey destinationStakeAccount,
@@ -796,6 +1030,22 @@ public final class StakeProgram {
     ByteUtil.putInt64LE(data, NATIVE_DISCRIMINATOR_LENGTH, lamports);
 
     return Instruction.createInstruction(solanaAccounts.invokedStakeProgram(), keys, data);
+  }
+
+  public record MoveLamports(byte[] discriminator, long lamports) {
+
+    public static MoveLamports read(final Instruction instruction) {
+      return read(instruction.data(), instruction.offset());
+    }
+
+    public static MoveLamports read(final byte[] data, final int offset) {
+      if (data == null || data.length == 0) {
+        return null;
+      }
+      final var discriminator = readDiscriminator(data, offset);
+      final var lamports = getInt64LE(data, offset + NATIVE_DISCRIMINATOR_LENGTH);
+      return new MoveLamports(discriminator, lamports);
+    }
   }
 
   private StakeProgram() {
