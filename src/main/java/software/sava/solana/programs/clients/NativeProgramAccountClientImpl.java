@@ -297,8 +297,7 @@ final class NativeProgramAccountClientImpl implements NativeProgramAccountClient
   @Override
   public List<Instruction> wrapSOL(final long lamports) {
     final var transferIx = transferSolLamports(wrappedSolPDA.publicKey(), lamports);
-    final var syncNativeIx = nativeProgramClient.syncNative(wrappedSolPDA.publicKey());
-    return List.of(transferIx, syncNativeIx);
+    return List.of(transferIx, syncNative());
   }
 
   @Override
