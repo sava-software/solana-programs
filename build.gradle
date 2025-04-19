@@ -3,13 +3,13 @@ ext {
   VCS_URL = 'https://github.com/sava-software/solana-programs'
 }
 
-apply plugin: 'java-library'
-apply plugin: 'maven-publish'
+apply(plugin: 'java-library')
+apply(plugin: 'maven-publish')
 
 project.group = 'software.sava'
 project.version = "$VERSION"
 
-final JLV = JavaLanguageVersion.of(project.findProperty('javaVersion') as Integer ?: 23)
+final JLV = JavaLanguageVersion.of(project.findProperty('javaVersion') as Integer ?: 24)
 final GPR_USER = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
 final GPR_TOKEN = project.findProperty("gpr.token") ?: System.getenv("GITHUB_TOKEN")
 

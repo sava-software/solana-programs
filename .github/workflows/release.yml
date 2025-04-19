@@ -18,7 +18,7 @@ jobs:
       - uses: gradle/actions/wrapper-validation@v3
 
       - uses: oracle-actions/setup-java@v1
-        if: ${{ vars.GRADLE_JAVA_VERSION != vars.JAVA_VERSION }}
+        if: ${{ vars.GRADLE_JAVA_VERSION != vars.JAVA_VERSION_GA }}
         with:
           website: ${{ vars.JDK_SRC }}
           release: ${{ vars.GRADLE_JAVA_VERSION }}
@@ -26,20 +26,20 @@ jobs:
       - run: |
           printf "org.gradle.java.home=%s" "$JAVA_HOME" > gradle.properties
           java --version
-        if: ${{ vars.GRADLE_JAVA_VERSION != vars.JAVA_VERSION }}
+        if: ${{ vars.GRADLE_JAVA_VERSION != vars.JAVA_VERSION_GA }}
 
       - uses: oracle-actions/setup-java@v1
         with:
           website: ${{ vars.JDK_SRC }}
-          release: ${{ vars.JAVA_VERSION }}
+          release: ${{ vars.JAVA_VERSION_GA }}
 
       - run: printf "org.gradle.java.home=%s" "$JAVA_HOME" > gradle.properties
-        if: ${{ vars.GRADLE_JAVA_VERSION == vars.JAVA_VERSION }}
+        if: ${{ vars.GRADLE_JAVA_VERSION == vars.JAVA_VERSION_GA }}
 
       - name: Github Packages
         run: |
           printf "\norg.gradle.java.installations.paths=%s" "$JAVA_HOME" >> gradle.properties
           java --version
-          ./gradlew --stacktrace --no-daemon -PjavaVersion=${{ vars.JAVA_VERSION }} -Pversion=${{ github.ref_name }} check publish
+          ./gradlew --stacktrace --no-daemon -PjavaVersion=${{ vars.JAVA_VERSION_GA }} -Pversion=${{ github.ref_name }} check publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
