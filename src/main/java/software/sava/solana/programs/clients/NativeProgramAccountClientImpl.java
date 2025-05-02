@@ -21,6 +21,7 @@ import software.sava.solana.programs.token.AssociatedTokenProgram;
 import software.sava.solana.programs.token.TokenProgram;
 
 import java.util.List;
+import java.util.SequencedCollection;
 import java.util.concurrent.CompletableFuture;
 
 import static software.sava.solana.programs.compute_budget.ComputeBudgetProgram.COMPUTE_UNITS_CONSUMED;
@@ -600,7 +601,8 @@ final class NativeProgramAccountClientImpl implements NativeProgramAccountClient
   }
 
   @Override
-  public Instruction extendLookupTable(final PublicKey tableAccount, final List<PublicKey> newAddresses) {
+  public Instruction extendLookupTable(final PublicKey tableAccount,
+                                       final SequencedCollection<PublicKey> newAddresses) {
     return AddressLookupTableProgram.extendLookupTable(
         solanaAccounts,
         tableAccount,
