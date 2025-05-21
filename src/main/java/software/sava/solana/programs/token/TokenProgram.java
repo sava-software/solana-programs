@@ -513,56 +513,62 @@ public final class TokenProgram {
   }
 
   private static byte[] initializeMintData(final TokenInstruction tokenInstruction,
+                                           final int decimals,
                                            final PublicKey mintAuthority,
                                            final PublicKey freezeAuthority) {
     final byte[] data;
     if (freezeAuthority == null) {
-      data = new byte[1 + PUBLIC_KEY_LENGTH + 1];
-      data[33] = (byte) 0;
+      data = new byte[1 + 1 + PUBLIC_KEY_LENGTH + 1];
+      data[34] = (byte) 0;
     } else {
-      data = new byte[1 + PUBLIC_KEY_LENGTH + 1 + PUBLIC_KEY_LENGTH];
-      data[33] = (byte) 1;
-      freezeAuthority.write(data, 34);
+      data = new byte[1 + 1 + PUBLIC_KEY_LENGTH + 1 + PUBLIC_KEY_LENGTH];
+      data[34] = (byte) 1;
+      freezeAuthority.write(data, 35);
     }
     data[0] = tokenInstruction.discriminator;
-    mintAuthority.write(data, 1);
+    data[1] = (byte) (decimals & 0xFF);
+    mintAuthority.write(data, 2);
     return data;
   }
 
   public static Instruction initializeMint(final AccountMeta invokedTokenProgram,
                                            final SolanaAccounts solanaAccounts,
                                            final PublicKey mint,
+                                           final int decimals,
                                            final PublicKey mintAuthority,
                                            final PublicKey freezeAuthority) {
     final var keys = List.of(
         createWrite(mint),
         solanaAccounts.readRentSysVar()
     );
-    final byte[] data = initializeMintData(TokenInstruction.InitializeMint, mintAuthority, freezeAuthority);
+    final byte[] data = initializeMintData(TokenInstruction.InitializeMint, decimals, mintAuthority, freezeAuthority);
     return createInstruction(invokedTokenProgram, keys, data);
   }
 
   public static Instruction initializeMint(final SolanaAccounts solanaAccounts,
                                            final PublicKey mint,
+                                           final int decimals,
                                            final PublicKey mintAuthority,
                                            final PublicKey freezeAuthority) {
-    return initializeMint(solanaAccounts.invokedTokenProgram(), solanaAccounts, mint, mintAuthority, freezeAuthority);
+    return initializeMint(solanaAccounts.invokedTokenProgram(), solanaAccounts, mint, decimals, mintAuthority, freezeAuthority);
   }
 
   public static Instruction initializeMint2(final AccountMeta invokedTokenProgram,
                                             final PublicKey mint,
+                                            final int decimals,
                                             final PublicKey mintAuthority,
                                             final PublicKey freezeAuthority) {
     final var keys = List.of(createWrite(mint));
-    final byte[] data = initializeMintData(TokenInstruction.InitializeMint2, mintAuthority, freezeAuthority);
+    final byte[] data = initializeMintData(TokenInstruction.InitializeMint2, decimals, mintAuthority, freezeAuthority);
     return createInstruction(invokedTokenProgram, keys, data);
   }
 
   public static Instruction initializeMint2(final SolanaAccounts solanaAccounts,
                                             final PublicKey mint,
+                                            final int decimals,
                                             final PublicKey mintAuthority,
                                             final PublicKey freezeAuthority) {
-    return initializeMint2(solanaAccounts.invokedTokenProgram(), mint, mintAuthority, freezeAuthority);
+    return initializeMint2(solanaAccounts.invokedTokenProgram(), mint, decimals, mintAuthority, freezeAuthority);
   }
 
   public static Instruction initializeAccount(final AccountMeta invokedTokenProgram,

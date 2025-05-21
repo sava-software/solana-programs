@@ -790,12 +790,14 @@ public final class Token2022Program {
 
   public static Instruction initializeMint(final SolanaAccounts solanaAccounts,
                                            final PublicKey mint,
+                                           final int decimals,
                                            final PublicKey mintAuthority,
                                            final PublicKey freezeAuthority) {
     return TokenProgram.initializeMint(
         solanaAccounts.invokedToken2022Program(),
         solanaAccounts,
         mint,
+        decimals,
         mintAuthority,
         freezeAuthority
     );
@@ -803,11 +805,13 @@ public final class Token2022Program {
 
   public static Instruction initializeMint2(final SolanaAccounts solanaAccounts,
                                             final PublicKey mint,
+                                            final int decimals,
                                             final PublicKey mintAuthority,
                                             final PublicKey freezeAuthority) {
     return TokenProgram.initializeMint2(
         solanaAccounts.invokedToken2022Program(),
         mint,
+        decimals,
         mintAuthority,
         freezeAuthority
     );
