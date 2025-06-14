@@ -1,25 +1,13 @@
 package software.sava.solana.programs.stake;
 
-import software.sava.core.borsh.Borsh;
-import software.sava.core.encoding.ByteUtil;
+import software.sava.solana.programs.serde.SerdeEnum;
 
-public enum StakeAuthorize implements Borsh {
+public enum StakeAuthorize implements SerdeEnum {
 
   Staker,
   Withdrawer;
 
-  @Override
-  public int l() {
-    return Integer.BYTES;
-  }
-
-  @Override
-  public int write(final byte[] data, final int offset) {
-    ByteUtil.putInt32LE(data, offset, ordinal());
-    return l();
-  }
-
-  public static StakeAuthorize read(final byte[] _data, final int offset) {
-    return Borsh.read(StakeAuthorize.values(), _data, offset);
+  public static StakeAuthorize read(final byte[] data, final int offset) {
+    return SerdeEnum.read(StakeAuthorize.values(), data, offset);
   }
 }

@@ -25,7 +25,7 @@ public record ValidatorList(PublicKey address,
   public static final BiFunction<PublicKey, byte[], ValidatorList> FACTORY = ValidatorList::read;
 
   public static ValidatorList read(final PublicKey publicKey, final byte[] data, int offset) {
-    final var accountType = software.sava.solana.programs.stakepool.AccountType.values()[data[offset] & 0xFF];
+    final var accountType = AccountType.values()[data[offset] & 0xFF];
     ++offset;
     final int maxValidators = getInt32LE(data, offset);
     offset += Integer.BYTES;

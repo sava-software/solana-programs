@@ -2,13 +2,19 @@ package software.sava.solana.programs.system;
 
 import org.junit.jupiter.api.Test;
 import software.sava.core.accounts.PublicKey;
+import software.sava.core.accounts.SolanaAccounts;
+import software.sava.core.encoding.Base58;
 import software.sava.core.tx.TransactionSkeleton;
+import software.sava.solana.programs.stake.StakeAuthorize;
 import software.sava.solana.programs.stake.StakeProgram;
 
 import java.util.Base64;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static software.sava.solana.programs.stake.StakeAuthorize.Staker;
+import static software.sava.solana.programs.stake.StakeAuthorize.Withdrawer;
 
 final class StakeProgramTests {
 
@@ -34,5 +40,27 @@ final class StakeProgramTests {
     var splitData = StakeProgram.Split.read(splitIx);
     assertArrayEquals(StakeProgram.Instructions.Split.data(), splitData.discriminator());
     assertEquals(4230000000000L, splitData.lamports());
+  }
+
+  @Test
+  void authorizeData() {
+    byte[] data = Base58.decode("3t9dD1DMBKjQBnMKfD6zcqBgYJE8LDDw42WTR29f8AVNx6xfDrMJJK");
+    var authorize = StakeProgram.Authorize.read(data, 0);
+    assertArrayEquals(StakeProgram.Instructions.Authorize.data(), authorize.discriminator());
+    assertEquals("4zeVNswbjb8x2FnEkGpmuhUQbPLR4MB4ZKj4NNrz5KeC", authorize.newAuthority().toBase58());
+    assertEquals(Staker, authorize.stakeAuthorize());
+
+    final var solanaAccounts = SolanaAccounts.MAIN_NET;
+    var ix = StakeProgram.authorize(solanaAccounts, List.of(), authorize.newAuthority(), Staker);
+    assertArrayEquals(data, ix.data());
+
+    data = Base58.decode("3t9dD1DMBKjQBnMKfD6zcqBgYJE8LDDw42WTR29f8AVNx6xfDsqHaf");
+    authorize = StakeProgram.Authorize.read(data, 0);
+    assertArrayEquals(StakeProgram.Instructions.Authorize.data(), authorize.discriminator());
+    assertEquals("4zeVNswbjb8x2FnEkGpmuhUQbPLR4MB4ZKj4NNrz5KeC", authorize.newAuthority().toBase58());
+    assertEquals(Withdrawer, authorize.stakeAuthorize());
+
+    ix = StakeProgram.authorize(solanaAccounts, List.of(), authorize.newAuthority(), Withdrawer);
+    assertArrayEquals(data, ix.data());
   }
 }
