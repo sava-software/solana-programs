@@ -62,7 +62,7 @@ jobs:
         run: |
           printf "\norg.gradle.java.installations.paths=%s" "$JAVA_HOME" >> gradle.properties
           java --version
-          ./gradlew --stacktrace -PjavaVersion=${{ vars.JAVA_VERSION_GA }} -Pversion=${{ github.ref_name }} check :solana-programs:publish publishAggregationToCentralPortal
+          ./gradlew --stacktrace -Psign=true -PjavaVersion=${{ vars.JAVA_VERSION_GA }} -Pversion=${{ github.ref_name }} check :solana-programs:publish publishAggregationToCentralPortal
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_PUBLISH_PK: ${{ secrets.GPG_PUBLISH_PK }}
