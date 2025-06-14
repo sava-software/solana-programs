@@ -20,6 +20,5 @@ hs_err_pid*
 *.secret
 .DS_Store
 out/
-gradle.properties
 ignore
-/src/main/java/software/sava/solana/programs/confidential/
+/solana-programs/src/main/java/software/sava/solana/programs/confidential/
