@@ -5,7 +5,7 @@ plugins {
   id("software.sava.gradle.build")
 }
 
-rootProject.name = "root"
+rootProject.name = "sp"
 
 javaModules {
   directory(".") {

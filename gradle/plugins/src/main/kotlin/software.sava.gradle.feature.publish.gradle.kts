@@ -46,7 +46,7 @@ publishing {
       url = vcs
       licenses {
         license {
-          name = "MIT License"
+          name = "Apache License 2.0"
           url = "https://github.com/sava-software/solana-programs/blob/main/LICENSE"
         }
       }
