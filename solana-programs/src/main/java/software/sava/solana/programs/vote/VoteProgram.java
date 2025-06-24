@@ -241,8 +241,7 @@ public final class VoteProgram {
     return createInstruction(solanaAccounts.invokedVoteProgram(), keys, data);
   }
 
-  public static Instruction authorizeCheckedWithSeed(final AccountMeta invokedProgram,
-                                                     final SolanaAccounts solanaAccounts,
+  public static Instruction authorizeCheckedWithSeed(final SolanaAccounts solanaAccounts,
                                                      final PublicKey voteAccount,
                                                      final PublicKey baseKey,
                                                      final PublicKey newAuthority,
@@ -258,7 +257,7 @@ public final class VoteProgram {
     Instructions.AuthorizeCheckedWithSeed.write(data, 0);
     args.write(data, NATIVE_DISCRIMINATOR_LENGTH);
 
-    return createInstruction(invokedProgram, keys, data);
+    return createInstruction(solanaAccounts.invokedVoteProgram(), keys, data);
   }
 
   public static Instruction withdraw(final AccountMeta invokedProgram,
