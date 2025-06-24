@@ -5,3 +5,8 @@ plugins {
 dependencies {
   nmcpAggregation(project(":solana-programs"))
 }
+
+tasks.register("publishToGitHubPackages") {
+  group = "publishing"
+  dependsOn(":solana-programs:publish")
+}
