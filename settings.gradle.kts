@@ -1,6 +1,16 @@
+pluginManagement {
+  repositories {
+    gradlePluginPortal()
+    maven {
+      name = "savaGithubPackages"
+      url = uri("https://maven.pkg.github.com/sava-software/sava-build")
+      credentials(PasswordCredentials::class)
+    }
+  }
+}
+
 plugins {
-  id("software.sava.build") version "0.1.8"
-  // id("software.sava.build.feature-jdk-provisioning") version "0.1.8"
+  id("software.sava.build") version "0.1.13"
 }
 
 rootProject.name = "solana-programs"
