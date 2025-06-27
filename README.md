@@ -1,4 +1,4 @@
-# Solana Programs [![Build](https://github.com/sava-software/solana-programs/actions/workflows/gradle.yml/badge.svg)](https://github.com/sava-software/solana-programs/actions/workflows/gradle.yml) [![Release](https://github.com/sava-software/solana-programs/actions/workflows/release.yml/badge.svg)](https://github.com/sava-software/solana-programs/actions/workflows/release.yml)
+# Solana Programs [![Gradle Check](https://github.com/sava-software/solana-programs/actions/workflows/build.yml/badge.svg)](https://github.com/sava-software/solana-programs/actions/workflows/build.yml) [![Publish Release](https://github.com/sava-software/solana-programs/actions/workflows/publish.yml/badge.svg)](https://github.com/sava-software/solana-programs/actions/workflows/publish.yml)
 
 ## Documentation
 
