@@ -15,9 +15,9 @@ import java.util.List;
 import static software.sava.core.accounts.PublicKey.PUBLIC_KEY_LENGTH;
 import static software.sava.core.accounts.meta.AccountMeta.*;
 import static software.sava.core.tx.Instruction.createInstruction;
-import static software.sava.solana.programs.token.TokenProgram.initSigners;
+import static software.sava.solana.programs.token.TokenProgram.initReadOnlySigners;
 
-// https://github.com/solana-program/token-2022
+// https://github.com/solana-program/token-2022/blob/main/program/src/instruction.rs
 public final class Token2022Program {
 
   public enum TokenInstruction implements Discriminator {
@@ -1277,7 +1277,7 @@ public final class Token2022Program {
                                                final PublicKey owner,
                                                final List<PublicKey> signerAccounts,
                                                final Collection<ExtensionType> newExtensionTypes) {
-    final var keys = initSigners(4, signerAccounts);
+    final var keys = initReadOnlySigners(4, signerAccounts);
     keys[0] = createWrite(account);
     keys[1] = createWritableSigner(payer);
     keys[2] = solanaAccounts.readSystemProgram();
@@ -1357,7 +1357,7 @@ public final class Token2022Program {
                                                    final PublicKey destinationAccount,
                                                    final PublicKey authority,
                                                    final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(3, signerAccounts);
+    final var keys = initReadOnlySigners(3, signerAccounts);
     keys[0] = createWrite(sourceAccount);
     keys[1] = createWrite(destinationAccount);
     keys[2] = createReadOnlySigner(authority);

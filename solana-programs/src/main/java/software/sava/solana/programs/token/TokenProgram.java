@@ -14,7 +14,7 @@ import static software.sava.core.accounts.PublicKey.PUBLIC_KEY_LENGTH;
 import static software.sava.core.accounts.meta.AccountMeta.*;
 import static software.sava.core.tx.Instruction.createInstruction;
 
-// https://github.com/solana-program/token/blob/main/program/src/instruction.rs#L23
+// https://github.com/solana-program/token/blob/main/interface/src/instruction.rs
 // https://github.com/solana-program/token-2022/blob/main/program/src/instruction.rs
 public final class TokenProgram {
 
@@ -640,7 +640,15 @@ public final class TokenProgram {
     return initializeAccount3(solanaAccounts.invokedTokenProgram(), account, mint, owner);
   }
 
-  static AccountMeta[] initSigners(int offset, final List<PublicKey> signerAccounts) {
+  static AccountMeta[] initReadOnlySigners(int offset, final List<PublicKey> signerAccounts) {
+    final var keys = new AccountMeta[offset + signerAccounts.size()];
+    for (final var signerAccount : signerAccounts) {
+      keys[offset++] = createReadOnlySigner(signerAccount);
+    }
+    return keys;
+  }
+
+  static AccountMeta[] initReadOnly(int offset, final List<PublicKey> signerAccounts) {
     final var keys = new AccountMeta[offset + signerAccounts.size()];
     for (final var signerAccount : signerAccounts) {
       keys[offset++] = createRead(signerAccount);
@@ -653,7 +661,7 @@ public final class TokenProgram {
                                                final PublicKey multisigAccount,
                                                final List<PublicKey> signerAccounts,
                                                final int requiredSignatures) {
-    final var keys = initSigners(2, signerAccounts);
+    final var keys = initReadOnly(2, signerAccounts);
     keys[0] = createWrite(multisigAccount);
     keys[1] = solanaAccounts.readRentSysVar();
 
@@ -681,7 +689,7 @@ public final class TokenProgram {
                                                 final PublicKey multisigAccount,
                                                 final List<PublicKey> signerAccounts,
                                                 final int requiredSignatures) {
-    final var keys = initSigners(1, signerAccounts);
+    final var keys = initReadOnly(1, signerAccounts);
     keys[0] = createWrite(multisigAccount);
 
     final byte[] data = new byte[2];
@@ -724,7 +732,7 @@ public final class TokenProgram {
                                              final long amount,
                                              final PublicKey owner,
                                              final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(3, signerAccounts);
+    final var keys = initReadOnlySigners(3, signerAccounts);
     keys[0] = createWrite(source);
     keys[1] = createWrite(destination);
     keys[2] = createRead(owner);
@@ -773,7 +781,7 @@ public final class TokenProgram {
                                                     final PublicKey owner,
                                                     final PublicKey tokenMint,
                                                     final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(4, signerAccounts);
+    final var keys = initReadOnlySigners(4, signerAccounts);
     keys[0] = createWrite(source);
     keys[1] = createRead(tokenMint);
     keys[2] = createWrite(destination);
@@ -818,7 +826,7 @@ public final class TokenProgram {
                                             final PublicKey owner,
                                             final List<PublicKey> signerAccounts,
                                             final long amount) {
-    final var keys = initSigners(3, signerAccounts);
+    final var keys = initReadOnlySigners(3, signerAccounts);
     keys[0] = createWrite(sourceAccount);
     keys[1] = createRead(delegate);
     keys[2] = createRead(owner);
@@ -893,7 +901,7 @@ public final class TokenProgram {
                                                    final PublicKey owner,
                                                    final List<PublicKey> signerAccounts,
                                                    final long amount) {
-    final var keys = initSigners(4, signerAccounts);
+    final var keys = initReadOnlySigners(4, signerAccounts);
     keys[0] = createWrite(sourceAccount);
     keys[1] = createRead(tokenMint);
     keys[2] = createRead(delegate);
@@ -944,7 +952,7 @@ public final class TokenProgram {
                                            final PublicKey sourceAccount,
                                            final PublicKey owner,
                                            final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(2, signerAccounts);
+    final var keys = initReadOnlySigners(2, signerAccounts);
     keys[0] = createWrite(sourceAccount);
     keys[1] = createRead(owner);
 
@@ -1003,7 +1011,7 @@ public final class TokenProgram {
                                                  final List<PublicKey> signerAccounts,
                                                  final AuthorityType authorityType,
                                                  final PublicKey newAuthority) {
-    final var keys = initSigners(2, signerAccounts);
+    final var keys = initReadOnlySigners(2, signerAccounts);
     keys[0] = createWrite(account);
     keys[1] = createRead(owner);
 
@@ -1057,7 +1065,7 @@ public final class TokenProgram {
                                                       final PublicKey account,
                                                       final PublicKey authority,
                                                       final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(3, signerAccounts);
+    final var keys = initReadOnlySigners(3, signerAccounts);
     keys[0] = createWrite(mint);
     keys[1] = createWrite(account);
     keys[2] = createRead(authority);
@@ -1188,7 +1196,7 @@ public final class TokenProgram {
                                                     final PublicKey account,
                                                     final PublicKey authority,
                                                     final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(3, signerAccounts);
+    final var keys = initReadOnlySigners(3, signerAccounts);
     keys[0] = createWrite(account);
     keys[1] = createWrite(mint);
     keys[2] = createRead(authority);
@@ -1307,7 +1315,7 @@ public final class TokenProgram {
                                                  final PublicKey lamportDestination,
                                                  final PublicKey owner,
                                                  final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(3, signerAccounts);
+    final var keys = initReadOnlySigners(3, signerAccounts);
     keys[0] = createWrite(tokenAccount);
     keys[1] = createWrite(lamportDestination);
     keys[2] = createRead(owner);
@@ -1352,7 +1360,7 @@ public final class TokenProgram {
                                                   final PublicKey mint,
                                                   final PublicKey freezeAuthority,
                                                   final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(3, signerAccounts);
+    final var keys = initReadOnlySigners(3, signerAccounts);
     keys[0] = createWrite(account);
     keys[1] = createRead(mint);
     keys[2] = createRead(freezeAuthority);
@@ -1397,7 +1405,7 @@ public final class TokenProgram {
                                                 final PublicKey mint,
                                                 final PublicKey authority,
                                                 final List<PublicKey> signerAccounts) {
-    final var keys = initSigners(3, signerAccounts);
+    final var keys = initReadOnlySigners(3, signerAccounts);
     keys[0] = createWrite(account);
     keys[1] = createRead(mint);
     keys[2] = createRead(authority);
