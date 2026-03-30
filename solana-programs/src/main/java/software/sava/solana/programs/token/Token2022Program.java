@@ -8,6 +8,9 @@ import software.sava.core.encoding.ByteUtil;
 import software.sava.core.programs.Discriminator;
 import software.sava.core.tx.Instruction;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -1378,6 +1381,117 @@ public final class Token2022Program {
     );
   }
 
+  public static Instruction initializeMetadataPointer(final AccountMeta invokedTokenProgram,
+                                                      final PublicKey mintAccount,
+                                                      final PublicKey authority,
+                                                      final PublicKey metadataAddress) {
+    final var keys = List.of(createWrite(mintAccount));
+    byte[] data = new byte[1+1+32+32];
+    data[0] = (byte)TokenInstruction.MetadataPointerExtension.ordinal();
+    data[1] = (byte)0;
+    authority.write(data, 2);
+
+    metadataAddress.write(data, 34);
+
+    return createInstruction(invokedTokenProgram, keys, data);
+  }
+
+  public static Instruction updateMetadataPointer(final AccountMeta invokedTokenProgram,
+                                                  final PublicKey mintAccount,
+                                                  final PublicKey authority,
+                                                  final PublicKey programAccount) {
+
+    byte[] data = new byte[1+1+32];
+    data[0] = (byte)TokenInstruction.MetadataPointerExtension.ordinal();
+    data[1] = (byte)1;
+
+    programAccount.write(data, 2);
+
+    return Instruction.createInstruction(
+            invokedTokenProgram,
+            List.of(
+                    AccountMeta.createWrite(mintAccount),
+                    AccountMeta.createReadOnlySigner(authority)
+            ),
+            data
+    );
+  }
+
+  public static Instruction initializeTokenMetadataInstruction(
+          final SolanaAccounts solanaAccounts,
+          final PublicKey metadata,
+          final PublicKey updateAuthority,
+          final PublicKey mintAuthority,
+          final PublicKey mint,
+          final String name,
+          final String symbol,
+          final String uri
+  ) {
+    byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
+    byte[] symbolBytes = symbol.getBytes(StandardCharsets.UTF_8);
+    byte[] uriBytes = uri.getBytes(StandardCharsets.UTF_8);
+    byte[] discriminator = new byte[] {
+            (byte) 0xD2, (byte) 0xE1, (byte) 0x1E, (byte) 0xA2, (byte) 0x58, (byte) 0xB8, (byte) 0x4D, (byte) 0x8D
+    };
+
+    int payloadSize = discriminator.length + 4 + nameBytes.length + 4 + symbolBytes.length + 4 + uriBytes.length;
+
+    ByteBuffer buf = ByteBuffer.allocate(payloadSize);
+    buf.order(ByteOrder.LITTLE_ENDIAN);
+    buf.put(discriminator);
+    buf.putInt(nameBytes.length);
+    buf.put(nameBytes);
+    buf.putInt(symbolBytes.length);
+    buf.put(symbolBytes);
+    buf.putInt(uriBytes.length);
+    buf.put(uriBytes);
+
+    return Instruction.createInstruction(
+            solanaAccounts.token2022Program(),
+            List.of(
+                    AccountMeta.createWrite(metadata),
+                    AccountMeta.createMeta(updateAuthority, false, false),
+                    AccountMeta.createMeta(mint, false, false),
+                    AccountMeta.createMeta(mintAuthority, false, true)
+            ),
+            buf.array()
+    );
+
+  }
+  public static Instruction initializeTransferHook(final AccountMeta invokedTokenProgram,
+                                                   final PublicKey mintAccount,
+                                                   final PublicKey authority,
+                                                   final PublicKey programAccount) {
+    List<AccountMeta> keys = List.of(AccountMeta.createWrite(mintAccount));
+    byte[] data = new byte[1+1+32+32];
+    data[0] = (byte)Token2022Program.TokenInstruction.TransferHookExtension.ordinal();
+    data[1] = (byte)0;
+
+    authority.write(data, 2);
+    programAccount.write(data,34);
+    return Instruction.createInstruction(invokedTokenProgram, keys, data);
+  }
+  public static Instruction updateTransferHook(
+          final AccountMeta invokedTokenProgram,
+          final PublicKey mintAccount,
+          final PublicKey authority,
+          final PublicKey programAccount) {
+
+    byte[] data = new byte[1+1+32];
+    data[0] = (byte)Token2022Program.TokenInstruction.TransferHookExtension.ordinal();
+    data[1] = (byte)1;
+
+    programAccount.write(data, 2);
+
+    return Instruction.createInstruction(
+            invokedTokenProgram,
+            List.of(
+                    AccountMeta.createWrite(mintAccount),
+                    AccountMeta.createReadOnlySigner(authority)
+            ),
+            data
+    );
+  }
   private Token2022Program() {
   }
 }
