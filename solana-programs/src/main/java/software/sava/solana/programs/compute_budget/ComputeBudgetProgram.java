@@ -1,5 +1,6 @@
 package software.sava.solana.programs.compute_budget;
 
+import software.sava.core.accounts.SolanaAccounts;
 import software.sava.core.accounts.meta.AccountMeta;
 import software.sava.core.encoding.ByteUtil;
 import software.sava.core.programs.Discriminator;
@@ -17,6 +18,11 @@ public final class ComputeBudgetProgram {
   public static int SET_LOADED_ACCOUNT_SIZE_LIMIT_CONSUMPTION = 150;
 
   public static int MAX_COMPUTE_BUDGET = 1_400_000;
+
+  public static final Instruction MAX_COMPUTE_BUDGET_IX = setComputeUnitLimit(
+      SolanaAccounts.MAIN_NET.invokedComputeBudgetProgram(),
+      MAX_COMPUTE_BUDGET
+  );
 
   public enum Instructions implements Discriminator {
 

@@ -23,3 +23,4 @@ out/
 ignore
 /solana-programs/src/main/java/software/sava/solana/programs/confidential/
 /symlinks/
+*Integ.*

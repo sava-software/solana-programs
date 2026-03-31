@@ -1412,7 +1412,6 @@ public final class Token2022Program {
                                                   final PublicKey mintAccount,
                                                   final PublicKey authority,
                                                   final PublicKey metadataAccount) {
-
     final var keys = List.of(
         AccountMeta.createWrite(mintAccount),
         AccountMeta.createReadOnlySigner(authority)
@@ -1468,6 +1467,7 @@ public final class Token2022Program {
             + Integer.BYTES + symbolBytes.length
             + Integer.BYTES + uriBytes.length
         ];
+
     int offset = INITIALIZE_TOKEN_METADATA_DISCRIMINATOR.write(data, 0);
 
     ByteUtil.putInt32LE(data, offset, nameBytes.length);
@@ -1499,12 +1499,14 @@ public final class Token2022Program {
                                                    final PublicKey authority,
                                                    final PublicKey programAccount) {
     final var keys = List.of(AccountMeta.createWrite(mintAccount));
+
     final byte[] data = new byte[1 + 1 + 32 + 32];
     data[0] = (byte) TokenInstruction.TransferHookExtension.ordinal();
     data[1] = (byte) 0;
 
     authority.write(data, 2);
     programAccount.write(data, 34);
+
     return createInstruction(invokedTokenProgram, keys, data);
   }
 
