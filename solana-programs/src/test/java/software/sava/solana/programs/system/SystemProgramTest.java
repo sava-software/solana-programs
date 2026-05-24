@@ -48,7 +48,6 @@ final class SystemProgramTest {
     );
   }
 
-
   @Test
   public void parseNonceAccount() {
     final var base64Data = "AQAAAAEAAAAM9WXp4HSq1hKViJ/hvS0dbhl8yvNJy13z3Lc8uGCyBirl7d+e05ILHtmpCyrZqMRG/x5AzISLYbViohfeG07tiBMAAAAAAAA=";

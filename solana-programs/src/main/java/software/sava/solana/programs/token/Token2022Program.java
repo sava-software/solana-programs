@@ -18,7 +18,7 @@ import static software.sava.core.accounts.meta.AccountMeta.*;
 import static software.sava.core.tx.Instruction.createInstruction;
 import static software.sava.solana.programs.token.TokenProgram.initReadOnlySigners;
 
-// https://github.com/solana-program/token-2022/blob/main/program/src/instruction.rs
+// https://github.com/solana-program/token-2022/blob/main/interface/src/instruction.rs
 public final class Token2022Program {
 
   public enum TokenInstruction implements Discriminator {
@@ -1391,6 +1391,7 @@ public final class Token2022Program {
                                                       final PublicKey authority,
                                                       final PublicKey metadataAccount) {
     final var keys = List.of(createWrite(mintAccount));
+
     final byte[] data = new byte[1 + 1 + 32 + 32];
     data[0] = (byte) TokenInstruction.MetadataPointerExtension.ordinal();
     data[1] = (byte) 0;
