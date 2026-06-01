@@ -1,32 +1,7 @@
-# Solana Programs [![Gradle Check](https://github.com/sava-software/solana-programs/actions/workflows/build.yml/badge.svg)](https://github.com/sava-software/solana-programs/actions/workflows/build.yml) [![Publish Release](https://github.com/sava-software/solana-programs/actions/workflows/publish.yml/badge.svg)](https://github.com/sava-software/solana-programs/actions/workflows/publish.yml)
+# Solana Programs
 
-## Documentation
-
-User documentation lives at [sava.software](https://sava.software/).
-
-* [Dependency Configuration](https://sava.software/quickstart)
-* [Programs](https://sava.software/libraries/programs)
-
-## Contribution
-
-Please note that all contributions require agreeing to
-the [Sava Engineering, Inc. CLA](https://gist.github.com/jpe7s/09546e42783187c6d04f38e04184ecfa).
-
-Tests are needed and welcomed. Otherwise, [please reach out](https://github.com/sava-software) before working on a pull
-request.
-
-## Build
-
-[Generate a classic token](https://github.com/settings/tokens) with the `read:packages` scope needed to access
-dependencies hosted on GitHub Package Repository.
-
-#### ~/.gradle/gradle.properties
-
-```properties
-savaGithubPackagesUsername=GITHUB_USERNAME
-savaGithubPackagesPassword=GITHUB_TOKEN
-```
-
-```shell
-./gradlew check
-```
+> [!IMPORTANT]
+> The functionality provided by this repository has been made redundant by the [
+`idl-clients-spl`](https://github.com/sava-software/idl-clients/tree/main/idl-clients-spl) module of the [idl-clients](https://sava.software/libraries/idl-clients) library.
+`solana-programs` will no longer receive updates. If you rely on functionality here that is not supported by
+`idl-clients-spl`, or need help finding the equivalent, please reach out.
